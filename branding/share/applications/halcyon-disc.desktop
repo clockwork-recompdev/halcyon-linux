@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Install from Disc
+GenericName=Install a PC game or program from CD/DVD
+Comment=Runs the setup on the inserted disc, like Windows AutoPlay
+Exec=sh -c 'mp=$(readlink -f "${XDG_DATA_HOME:-$HOME/.local/share}/halcyon/cdrom"); [ -d "$mp" ] && halcyon-disc-install "$mp" || kdialog --sorry "Insert a disc first."'
+Icon=media-optical
+Categories=Game;System;
+Keywords=cd;dvd;disc;install;setup;autorun;wine;game;

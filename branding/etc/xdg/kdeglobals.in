@@ -1,0 +1,16 @@
+[General]
+ColorScheme=HalcyonAero
+font=Source Sans 3,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+menuFont=Source Sans 3,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+toolBarFont=Source Sans 3,9,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+smallestReadableFont=Source Sans 3,8,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+
+[Icons]
+Theme=oxygen
+
+[KDE]
+LookAndFeelPackage=org.halcyon.desktop
+widgetStyle=Breeze
+
+[WM]
+activeFont=Source Sans 3,10,-1,5,600,0,0,0,0,0,0,0,0,0,0,1

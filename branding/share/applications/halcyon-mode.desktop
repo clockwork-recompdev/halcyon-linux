@@ -1,0 +1,18 @@
+[Desktop Entry]
+Type=Application
+Name=Switch Desktop Mode
+GenericName=Classic / Tiling
+Comment=Switch between the classic Aero desktop and Hyprland-style tiling (Super+Ctrl+Alt+Space)
+Exec=halcyon-mode toggle
+Icon=view-split-left-right
+Categories=Settings;DesktopSettings;
+Keywords=tiling;hyprland;krohnkite;mode;
+Actions=classic;tiling;
+
+[Desktop Action classic]
+Name=Classic mode
+Exec=halcyon-mode classic
+
+[Desktop Action tiling]
+Name=Tiling mode
+Exec=halcyon-mode tiling

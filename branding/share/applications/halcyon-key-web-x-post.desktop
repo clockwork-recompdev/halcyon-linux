@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=X post
+Exec=firefox --new-window https://x.com/compose/post
+Icon=halcyon-logo
+NoDisplay=true
+X-KDE-Shortcuts=Meta+Shift+Alt+X

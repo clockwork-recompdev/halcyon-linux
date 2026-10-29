@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+# Halcyon AutoPlay: watch optical drives and react to inserted discs the way
+# Windows did: identify the disc, then run the remembered action or ask.
+# Started per user session from /etc/xdg/autostart/halcyon-autoplay.desktop.
+set -uo pipefail
+source /usr/lib/halcyon/disc-lib.sh
+
+STATE=${XDG_DATA_HOME:-$HOME/.local/share}/halcyon
+CDLINK=$STATE/cdrom               # stable path that Wine's D: drive points at
+LOCK=${XDG_RUNTIME_DIR:-/tmp}/halcyon-disc-install.lock
+mkdir -p "$STATE"
+
+log() { printf 'autoplay: %s\n' "$*" >&2; }
+notify() { kdialog --title "Halcyon AutoPlay" --icon media-optical --passivepopup "$1" 5 & }
+
+installing() { [[ -f $LOCK ]] && kill -0 "$(<"$LOCK")" 2>/dev/null; }
+
+mount_disc() {  # mount_disc /dev/srN -> prints mount point
+    local dev=$1 mp
+    mp=$(findmnt -n -o TARGET --source "$dev" | head -1)
+    if [[ -z $mp ]]; then
+        udisksctl mount -b "$dev" --no-user-interaction >/dev/null 2>&1 || return 1
+        mp=$(findmnt -n -o TARGET --source "$dev" | head -1)
+    fi
+    [[ -n $mp ]] && echo "$mp"
+}
+
+ifind() {  # ifind DIR NAME...: first entry in DIR matching any NAME, case-insensitively
+    local dir=$1; shift
+    local n
+    for n in "$@"; do
+        find "$dir" -mindepth 1 -maxdepth 1 -iname "$n" -print -quit 2>/dev/null | grep . && return 0
+    done
+    return 1
+}
+
+classify() {  # classify <udev props as KEY=VAL lines> <mountpoint or ""> -> kind
+    local props=$1 mp=$2
+    if grep -q '^ID_CDROM_MEDIA_STATE=blank' <<<"$props"; then echo blank; return; fi
+    local audio data
+    audio=$(sed -n 's/^ID_CDROM_MEDIA_TRACK_COUNT_AUDIO=//p' <<<"$props")
+    data=$(sed -n 's/^ID_CDROM_MEDIA_TRACK_COUNT_DATA=//p' <<<"$props")
+    if [[ ${audio:-0} -gt 0 && ${data:-0} -eq 0 ]]; then echo audio; return; fi
+    [[ -n $mp ]] || { echo data; return; }
+    if ifind "$mp" VIDEO_TS >/dev/null; then echo dvdvideo; return; fi
+    if ifind "$mp" BDMV >/dev/null; then echo bluray; return; fi
+    if ifind "$mp" autorun.inf setup.exe install.exe autorun.exe >/dev/null; then echo windows; return; fi
+    if ifind "$mp" install.bat install.com go.bat '*.bat' >/dev/null; then echo dos; return; fi
+    echo data
+}
+
+title_for() {  # title_for <mountpoint> <props>
+    disc_title "$1" "$(sed -n 's/^ID_FS_LABEL=//p' <<<"$2")"
+}
+
+run_action() {  # run_action <action> <dev> <mountpoint>
+    local action=$1 dev=$2 mp=$3
+    case $action in
+        install)  halcyon-disc-install "$mp" & ;;
+        dosbox)   halcyon-disc-install --dos "$mp" & ;;
+        browse)   xdg-open "$mp" & ;;
+        play-cd)  halcyon-player --cd & ;;
+        rip-cd)   halcyon-player --rip & ;;
+        play-dvd) vlc "dvd://$dev" & ;;
+        play-bd)  vlc "bluray://$dev" & ;;
+        burn)     k3b & ;;
+        nothing|"") ;;
+        *) log "unknown action $action" ;;
+    esac
+}
+
+on_insert() {
+    local dev=$1 props=$2 mp="" kind title action
+    sleep 1  # let the drive settle before mounting
+    grep -q '^ID_FS_TYPE=.' <<<"$props" && mp=$(mount_disc "$dev")
+    [[ -n $mp ]] && ln -sfn "$mp" "$CDLINK"
+
+    if installing; then
+        # Mid-install disc swap ("Please insert Disc 2"): D: already follows the
+        # link, so just let the user know the disc is ready.
+        notify "$(title_for "$mp" "$props") is ready."
+        return
+    fi
+
+    kind=$(classify "$props" "$mp")
+    title=$(title_for "$mp" "$props")
+    log "inserted $dev: kind=$kind title=$title mount=$mp"
+
+    action=$(kreadconfig6 --file halcyonrc --group AutoPlay --key "$kind" --default "")
+    if [[ -z $action ]]; then
+        local out always
+        out=$(halcyon-autoplay-dialog "$kind" "$title" "$mp" "$dev") || return
+        action=${out%%|*}; always=${out#*|}
+        [[ $always == always && $action != nothing ]] &&
+            kwriteconfig6 --file halcyonrc --group AutoPlay --key "$kind" "$action"
+    fi
+    run_action "$action" "$dev" "$mp"
+}
+
+# Point D: at a disc that's already in the drive when the session starts.
+for dev in /dev/sr*; do
+    [[ -b $dev ]] || continue
+    mp=$(findmnt -n -o TARGET --source "$dev" | head -1)
+    [[ -n $mp ]] && ln -sfn "$mp" "$CDLINK"
+done
+
+# udev change events on /dev/srN carry ID_CDROM_MEDIA=1 when a disc arrives.
+props=""
+udevadm monitor --udev --property --subsystem-match=block | while IFS= read -r line; do
+    if [[ -n $line ]]; then props+=$line$'\n'; continue; fi
+    dev=$(sed -n 's/^DEVNAME=//p' <<<"$props")
+    act=$(sed -n 's/^ACTION=//p' <<<"$props")
+    if [[ $dev == /dev/sr* && $act == change ]]; then
+        if grep -q '^ID_CDROM_MEDIA=1' <<<"$props"; then
+            # One insertion can emit several change events; handle it once.
+            key="$dev $(sed -n 's/^ID_FS_UUID=//p;s/^ID_CDROM_MEDIA_TRACK_COUNT=//p' <<<"$props" | tr '\n' ' ')"
+            now=$(date +%s)
+            if [[ $key != "${last_key:-}" ]] || (( now - ${last_time:-0} > 20 )); then
+                last_key=$key last_time=$now
+                on_insert "$dev" "$props" &
+            fi
+        else
+            log "ejected $dev"; last_key=""
+        fi
+    fi
+    props=""
+done

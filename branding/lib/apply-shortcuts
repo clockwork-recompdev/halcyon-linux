@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Merge Halcyon's Omarchy-style shortcuts into ~/.config/kglobalshortcutsrc.
+# Runs at login (plasma-workspace/env, before KWin starts) whenever the shipped
+# shortcut set changed; --force reapplies regardless.
+set -uo pipefail
+src=/usr/share/halcyon/kglobalshortcutsrc
+state=${XDG_STATE_HOME:-$HOME/.local/state}/halcyon/shortcuts.sha256
+[[ -r $src ]] || exit 0
+sum=$(sha256sum < "$src")
+[[ ${1:-} != --force && -f $state && $(<"$state") == "$sum" ]] && exit 0
+
+groups=()
+while IFS= read -r line; do
+    case $line in
+        '' | '#'*) continue ;;
+        '['*)  # "[services][org.kde.konsole.desktop]" -> (services org.kde.konsole.desktop)
+            IFS=$'\n' read -r -d '' -a groups < <(grep -oE '\[[^]]+\]' <<<"$line" | tr -d '[]'; printf '\0')
+            ;;
+        *=*)
+            key=${line%%=*} val=${line#*=}
+            args=()
+            for g in "${groups[@]}"; do args+=(--group "$g"); done
+            # Alternatives are separated by real tabs; KConfig stores them as \t.
+            kwriteconfig6 --file kglobalshortcutsrc "${args[@]}" --key "$key" "${val//\\t/$'\t'}"
+            ;;
+    esac
+done < "$src"
+
+mkdir -p "${state%/*}" && printf '%s' "$sum" > "$state"

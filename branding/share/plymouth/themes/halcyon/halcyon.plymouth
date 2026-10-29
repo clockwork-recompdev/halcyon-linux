@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Halcyon
+Description=Halcyon Aero boot splash
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/halcyon
+ScriptFile=/usr/share/plymouth/themes/halcyon/halcyon.script

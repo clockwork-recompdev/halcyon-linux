@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Bluetooth settings
+Exec=kcmshell6 kcm_bluetooth
+Icon=halcyon-logo
+NoDisplay=true
+X-KDE-Shortcuts=Meta+Ctrl+B

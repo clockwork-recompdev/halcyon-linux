@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# Switch the running Plasma session between Halcyon's two desktop modes,
+# live, without logging out.
+#
+#   halcyon-mode classic   floating glass windows, taskbar at the bottom
+#   halcyon-mode tiling    Hyprland-style: auto-tiling, gaps, borderless
+#                          windows with a glowing edge, slim bar on top
+#   halcyon-mode toggle    switch to the other one
+#   halcyon-mode bar       show/hide the panel (tiling-mode Super+Shift+Space)
+#   halcyon-mode status    print the current mode
+set -euo pipefail
+
+cfg() { kwriteconfig6 "$@"; }
+get() { kreadconfig6 "$@"; }
+
+dbus() {  # dbus <dest> <path> <method> [args...]
+    dbus-send --session --print-reply=literal --dest="$1" "$2" "$3" "${@:4}"
+}
+
+plasma_js() { dbus org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "string:$1" >/dev/null; }
+
+notify() {
+    command -v kdialog >/dev/null && kdialog --title "Halcyon" --icon halcyon-logo --passivepopup "$1" 3 &
+}
+
+script_loaded() {
+    dbus org.kde.KWin /Scripting org.kde.kwin.Scripting.isScriptLoaded string:krohnkite | grep -q true
+}
+
+current() { get --file halcyonrc --group Mode --key current --default classic; }
+
+set_desktops() {  # set_desktops N: grow/shrink virtual desktops to N
+    local want=$1 have ids
+    have=$(dbus org.kde.KWin /VirtualDesktopManager org.freedesktop.DBus.Properties.Get \
+        string:org.kde.KWin.VirtualDesktopManager string:count | awk '{print $NF}')
+    while (( have < want )); do
+        dbus org.kde.KWin /VirtualDesktopManager org.kde.KWin.VirtualDesktopManager.createDesktop \
+            uint32:"$have" string:"Workspace $((have + 1))" >/dev/null
+        have=$((have + 1))
+    done
+    if (( have > want )); then
+        # Desktop ids, in order; remove from the end. KWin moves their windows.
+        mapfile -t ids < <(dbus org.kde.KWin /VirtualDesktopManager org.freedesktop.DBus.Properties.Get \
+            string:org.kde.KWin.VirtualDesktopManager string:desktops |
+            grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | awk '!s[$0]++')
+        for ((i = ${#ids[@]} - 1; i >= want; i--)); do
+            dbus org.kde.KWin /VirtualDesktopManager org.kde.KWin.VirtualDesktopManager.removeDesktop \
+                string:"${ids[i]}" >/dev/null
+        done
+    fi
+}
+
+tiling() {
+    cfg --file kwinrc --group Plugins --key krohnkiteEnabled true
+    cfg --file kwinrc --group Script-krohnkite --key screenGapTop 8
+    cfg --file kwinrc --group Script-krohnkite --key screenGapBottom 8
+    cfg --file kwinrc --group Script-krohnkite --key screenGapLeft 8
+    cfg --file kwinrc --group Script-krohnkite --key screenGapRight 8
+    cfg --file kwinrc --group Script-krohnkite --key screenGapBetween 8
+    cfg --file kwinrc --group Script-krohnkite --key soleWindowNoGaps false
+    cfg --file kwinrc --group org.kde.kdecoration2 --key theme __aurorae__svg__HalcyonAeroSlim
+    cfg --file kwinrc --group org.kde.kdecoration2 --key ButtonsOnLeft ""
+    cfg --file kwinrc --group org.kde.kdecoration2 --key ButtonsOnRight ""
+    dbus org.kde.KWin /KWin org.kde.KWin.reconfigure >/dev/null
+    # Enabling the plugin in kwinrc isn't enough: ask KWin to load enabled scripts.
+    dbus org.kde.KWin /Scripting org.kde.kwin.Scripting.start >/dev/null
+    sleep 0.3
+    if ! script_loaded; then
+        notify "Tiling failed: KWin could not load Krohnkite (see: journalctl --user -b | grep -i krohnkite)"
+        echo "Krohnkite did not load." >&2
+    fi
+    set_desktops 10
+    plasma_js "panels().forEach(function (p) { p.location = 'top'; p.height = Math.round(gridUnit * 1.6); p.floating = true; p.hiding = 'none'; })"
+    cfg --file halcyonrc --group Mode --key current tiling
+    notify "Tiling mode: Super+Ctrl+Alt+Space to go back"
+}
+
+classic() {
+    cfg --file kwinrc --group Plugins --key krohnkiteEnabled false
+    dbus org.kde.KWin /Scripting org.kde.kwin.Scripting.unloadScript string:krohnkite >/dev/null || true
+    cfg --file kwinrc --group org.kde.kdecoration2 --key theme __aurorae__svg__HalcyonAero
+    cfg --file kwinrc --group org.kde.kdecoration2 --key ButtonsOnLeft M
+    cfg --file kwinrc --group org.kde.kdecoration2 --key ButtonsOnRight IAX
+    dbus org.kde.KWin /KWin org.kde.KWin.reconfigure >/dev/null
+    set_desktops 4
+    plasma_js "panels().forEach(function (p) { p.location = 'bottom'; p.height = Math.round(gridUnit * 2.1); p.floating = true; p.hiding = 'none'; })"
+    cfg --file halcyonrc --group Mode --key current classic
+    notify "Classic mode"
+}
+
+case ${1:-toggle} in
+    tiling)  tiling ;;
+    classic) classic ;;
+    toggle)  if [[ $(current) == tiling ]]; then classic; else tiling; fi ;;
+    bar)     plasma_js "panels().forEach(function (p) { p.hiding = (p.hiding == 'none') ? 'autohide' : 'none'; })" ;;
+    status)  echo "mode: $(current)"; script_loaded && echo "krohnkite: loaded" || echo "krohnkite: not loaded" ;;
+    *)       echo "usage: halcyon-mode classic|tiling|toggle|bar|status" >&2; exit 2 ;;
+esac

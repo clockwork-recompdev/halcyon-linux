@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Halcyon Media Player
+GenericName=Media Player
+Comment=Play music, video and streams; wears Windows Media Player skins
+Exec=halcyon-player %U
+Icon=multimedia-player
+Categories=AudioVideo;Audio;Video;Player;
+MimeType=audio/mpeg;audio/flac;audio/ogg;audio/x-vorbis+ogg;audio/opus;audio/x-wav;audio/mp4;audio/aac;audio/x-ms-wma;video/mp4;video/x-matroska;video/webm;video/x-msvideo;video/x-ms-wmv;video/quicktime;
+Keywords=music;mp3;flac;video;wmp;skin;winamp;

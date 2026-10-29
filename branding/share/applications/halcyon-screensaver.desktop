@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Screensaver
+Comment=Choose a screensaver, including classic Windows .scr screensavers
+Exec=halcyon-screensaver --settings
+Icon=preferences-desktop-screensaver
+Categories=Settings;DesktopSettings;
+Keywords=screensaver;scr;bubbles;plus;

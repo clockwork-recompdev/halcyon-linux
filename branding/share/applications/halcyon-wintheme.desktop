@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Windows Desktop Themes
+Comment=Use Microsoft Plus! and other Windows themes: wallpaper, animated cursors, sounds
+Exec=halcyon-wintheme
+Icon=preferences-desktop-theme
+Categories=Settings;DesktopSettings;
+Keywords=plus;theme;windows;xp;cursor;ani;aquarium;davinci;

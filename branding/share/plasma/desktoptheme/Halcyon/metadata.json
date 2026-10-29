@@ -1,0 +1,13 @@
+{
+    "KPlugin": {
+        "Authors": [{ "Name": "Halcyon Linux" }],
+        "Category": "",
+        "Description": "Glossy aqua glass, Frutiger Aero style",
+        "EnabledByDefault": true,
+        "Id": "Halcyon",
+        "License": "GPL-3.0-or-later",
+        "Name": "Halcyon",
+        "Version": "1.0"
+    },
+    "X-Plasma-API": "5.0"
+}

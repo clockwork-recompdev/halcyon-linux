@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="128" height="70">
+<defs><linearGradient id="baseg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fdcff" stop-opacity="0.3"/><stop offset="0.08" stop-color="#123a5c" stop-opacity="0.8"/><stop offset="0.1" stop-color="#0a2236" stop-opacity="0.86"/><stop offset="1" stop-color="#0d2c46" stop-opacity="0.9"/></linearGradient>
+</defs>
+<g id="topleft"><g transform="translate(0,0) scale(1,1)"><rect width="10" height="10" fill="none"/><path d="M10,0 H8 A8,8 0 0 0 0,8 V10 H10 Z M10,1 H8 A7,7 0 0 0 1,8 V10 H10 Z" fill-rule="evenodd" fill="#000a14" fill-opacity="0.85"/><path d="M10,1 H8 A7,7 0 0 0 1,8 V10 H10 Z M10,2 H8 A6,6 0 0 0 2,8 V10 H10 Z" fill-rule="evenodd" fill="#ffffff" fill-opacity="0.28"/><path d="M10,2 H8 A6,6 0 0 0 2,8 V10 H10 Z" fill="#9fdcff" fill-opacity="0.3"/></g></g>
+<g id="top"><rect x="10" y="0" width="40" height="1" fill="#000a14" fill-opacity="0.85"/><rect x="10" y="1" width="40" height="1" fill="#ffffff" fill-opacity="0.28"/><rect x="10" y="2" width="40" height="8" fill="#9fdcff" fill-opacity="0.3"/></g>
+<g id="topright"><g transform="translate(60,0) scale(-1,1)"><rect width="10" height="10" fill="none"/><path d="M10,0 H8 A8,8 0 0 0 0,8 V10 H10 Z M10,1 H8 A7,7 0 0 0 1,8 V10 H10 Z" fill-rule="evenodd" fill="#000a14" fill-opacity="0.85"/><path d="M10,1 H8 A7,7 0 0 0 1,8 V10 H10 Z M10,2 H8 A6,6 0 0 0 2,8 V10 H10 Z" fill-rule="evenodd" fill="#ffffff" fill-opacity="0.28"/><path d="M10,2 H8 A6,6 0 0 0 2,8 V10 H10 Z" fill="#9fdcff" fill-opacity="0.3"/></g></g>
+<g id="left"><rect x="0" y="10" width="1" height="40" fill="#000a14" fill-opacity="0.85"/><rect x="1" y="10" width="1" height="40" fill="#ffffff" fill-opacity="0.28"/><rect x="2" y="10" width="8" height="40" fill="url(#baseg)"/></g>
+<g id="center"><rect x="10" y="10" width="40" height="40" fill="url(#baseg)"/></g>
+<g id="right"><rect x="50" y="10" width="8" height="40" fill="url(#baseg)"/><rect x="58" y="10" width="1" height="40" fill="#ffffff" fill-opacity="0.28"/><rect x="59" y="10" width="1" height="40" fill="#000a14" fill-opacity="0.85"/></g>
+<g id="bottomleft"><g transform="translate(0,60) scale(1,-1)"><rect width="10" height="10" fill="none"/><path d="M10,0 H8 A8,8 0 0 0 0,8 V10 H10 Z M10,1 H8 A7,7 0 0 0 1,8 V10 H10 Z" fill-rule="evenodd" fill="#000a14" fill-opacity="0.85"/><path d="M10,1 H8 A7,7 0 0 0 1,8 V10 H10 Z M10,2 H8 A6,6 0 0 0 2,8 V10 H10 Z" fill-rule="evenodd" fill="#ffffff" fill-opacity="0.14"/><path d="M10,2 H8 A6,6 0 0 0 2,8 V10 H10 Z" fill="#0d2c46" fill-opacity="0.9"/></g></g>
+<g id="bottom"><rect x="10" y="50" width="40" height="8" fill="#0d2c46" fill-opacity="0.9"/><rect x="10" y="58" width="40" height="1" fill="#ffffff" fill-opacity="0.14"/><rect x="10" y="59" width="40" height="1" fill="#000a14" fill-opacity="0.85"/></g>
+<g id="bottomright"><g transform="translate(60,60) scale(-1,-1)"><rect width="10" height="10" fill="none"/><path d="M10,0 H8 A8,8 0 0 0 0,8 V10 H10 Z M10,1 H8 A7,7 0 0 0 1,8 V10 H10 Z" fill-rule="evenodd" fill="#000a14" fill-opacity="0.85"/><path d="M10,1 H8 A7,7 0 0 0 1,8 V10 H10 Z M10,2 H8 A6,6 0 0 0 2,8 V10 H10 Z" fill-rule="evenodd" fill="#ffffff" fill-opacity="0.14"/><path d="M10,2 H8 A6,6 0 0 0 2,8 V10 H10 Z" fill="#0d2c46" fill-opacity="0.9"/></g></g>
+<defs><radialGradient id="shadow-sr"><stop offset="0" stop-color="#00203a" stop-opacity="0.35"/><stop offset="1" stop-color="#00203a" stop-opacity="0"/></radialGradient><linearGradient id="shadow-sv" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#00203a" stop-opacity="0.35"/><stop offset="1" stop-color="#00203a" stop-opacity="0"/></linearGradient><linearGradient id="shadow-svb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#00203a" stop-opacity="0.35"/><stop offset="1" stop-color="#00203a" stop-opacity="0"/></linearGradient><linearGradient id="shadow-sh" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#00203a" stop-opacity="0.35"/><stop offset="1" stop-color="#00203a" stop-opacity="0"/></linearGradient><linearGradient id="shadow-shr" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#00203a" stop-opacity="0.35"/><stop offset="1" stop-color="#00203a" stop-opacity="0"/></linearGradient></defs>
+<g id="shadow-topleft"><rect x="70" y="0" width="14" height="14" fill="none"/><circle cx="84" cy="14" r="14" fill="url(#shadow-sr)" clip-path="url(#shadow-cliptopleft)"/></g>
+<clipPath id="shadow-cliptopleft"><rect x="70" y="0" width="14" height="14"/></clipPath>
+<rect id="shadow-top" x="84" y="0" width="20" height="14" fill="url(#shadow-sv)"/>
+<g id="shadow-topright"><rect x="104" y="0" width="14" height="14" fill="none"/><circle cx="104" cy="14" r="14" fill="url(#shadow-sr)" clip-path="url(#shadow-cliptopright)"/></g>
+<clipPath id="shadow-cliptopright"><rect x="104" y="0" width="14" height="14"/></clipPath>
+<rect id="shadow-left" x="70" y="14" width="14" height="20" fill="url(#shadow-sh)"/>
+<rect id="shadow-right" x="104" y="14" width="14" height="20" fill="url(#shadow-shr)"/>
+<g id="shadow-bottomleft"><rect x="70" y="34" width="14" height="14" fill="none"/><circle cx="84" cy="34" r="14" fill="url(#shadow-sr)" clip-path="url(#shadow-clipbottomleft)"/></g>
+<clipPath id="shadow-clipbottomleft"><rect x="70" y="34" width="14" height="14"/></clipPath>
+<rect id="shadow-bottom" x="84" y="34" width="20" height="14" fill="url(#shadow-svb)"/>
+<g id="shadow-bottomright"><rect x="104" y="34" width="14" height="14" fill="none"/><circle cx="104" cy="34" r="14" fill="url(#shadow-sr)" clip-path="url(#shadow-clipbottomright)"/></g>
+<clipPath id="shadow-clipbottomright"><rect x="104" y="34" width="14" height="14"/></clipPath>
+<rect id="hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="hint-top-margin" x="0" y="0" width="10" height="10" fill="none"/>
+<rect id="hint-bottom-margin" x="0" y="3" width="10" height="10" fill="none"/>
+<rect id="hint-left-margin" x="0" y="6" width="10" height="10" fill="none"/>
+<rect id="hint-right-margin" x="0" y="9" width="10" height="10" fill="none"/>
+</svg>

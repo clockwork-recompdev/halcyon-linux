@@ -1,0 +1,161 @@
+#!/usr/bin/env bash
+# halcyon-disc-install [--dos] <disc mount point>
+#
+# Install or run software from a PC disc the way old Windows did:
+#   - one shared Windows environment (Wine prefix) where everything installs,
+#     so expansions, patches and "Play" buttons on autorun menus just work
+#   - the disc appears as CD-ROM drive D:, which follows disc swaps
+#   - autorun.inf decides what runs; 16-bit programs run through otvdm
+#   - installed programs land in the start menu automatically (Wine does this)
+# With --dos, the disc is opened in DOSBox instead.
+set -uo pipefail
+source /usr/lib/halcyon/disc-lib.sh
+
+PREFIX=${HALCYON_WINEPREFIX:-${XDG_DATA_HOME:-$HOME/.local/share}/halcyon/windows}
+STATE=${XDG_DATA_HOME:-$HOME/.local/share}/halcyon
+CDLINK=$STATE/cdrom
+LOCK=${XDG_RUNTIME_DIR:-/tmp}/halcyon-disc-install.lock
+OTVDM=/usr/share/halcyon/otvdm   # 16-bit Windows support
+export WINEPREFIX=$PREFIX WINEDEBUG=${WINEDEBUG:--all}
+
+title="Halcyon"
+popup() { kdialog --title "$title" --icon media-optical --passivepopup "$1" 6 & }
+fail()  { kdialog --title "$title" --icon dialog-error --error "$1"; exit 1; }
+
+dos=0
+[[ ${1:-} == --dos ]] && { dos=1; shift; }
+mp=${1:-}
+[[ -d $mp ]] || fail "No disc folder given."
+mkdir -p "$STATE/logs"
+ln -sfn "$mp" "$CDLINK"
+
+ifind() { disc_find "$@"; }
+
+# ---------------------------------------------------------------- DOS ---
+if (( dos )); then
+    exe=$(ifind "$mp" install.exe || ifind "$mp" install.bat || ifind "$mp" setup.exe || true)
+    games=$HOME/Games/DOS
+    mkdir -p "$games"
+    args=(-c "mount c \"$games\"" -c "mount d \"$mp\" -t cdrom" -c "c:" )
+    [[ -n $exe ]] && args+=(-c "d:" -c "$(basename "$exe")")
+    exec dosbox "${args[@]}"
+fi
+
+# ------------------------------------------------- Windows environment ---
+command -v wine >/dev/null ||
+    fail "Windows support isn't installed yet.\n\nOpen Gaming Setup and choose \"Wine\"."
+
+map_cd_drive() {
+    # D: is a CD-ROM drive that always points at whatever disc is inserted.
+    # Create it before Wine first scans for drives, or Wine hands D: to
+    # some other mounted disk.
+    # If dosdevices/ exists Wine skips creating its own drives, so add C: and
+    # Z: too on a fresh prefix.
+    if [[ ! -d $PREFIX/dosdevices ]]; then
+        mkdir -p "$PREFIX/dosdevices" "$PREFIX/drive_c"
+        ln -s ../drive_c "$PREFIX/dosdevices/c:"
+        ln -s / "$PREFIX/dosdevices/z:"
+    fi
+    ln -sfn "$CDLINK" "$PREFIX/dosdevices/d:"
+    # d:: is the raw device (volume label/serial checks): the drive holding
+    # the disc that's mounted right now.
+    local dev
+    dev=$(findmnt -n -o SOURCE --target "$(readlink -f "$CDLINK")" 2>/dev/null)
+    if [[ $dev == /dev/sr* ]]; then
+        ln -sfn "$dev" "$PREFIX/dosdevices/d::"
+    else
+        rm -f "$PREFIX/dosdevices/d::"
+    fi
+}
+
+first_time_setup() {
+    map_cd_drive
+    wineboot --init >/dev/null 2>&1
+    map_cd_drive
+    # Old games expect an older Windows.
+    wine winecfg -v winxp >/dev/null 2>&1
+    wine reg add 'HKLM\Software\Wine\Drives' /v 'd:' /t REG_SZ /d cdrom /f >/dev/null 2>&1
+    mkdir -p "$PREFIX/drive_c/Games"
+    wineserver -w
+}
+
+if [[ ! -f $PREFIX/system.reg ]]; then
+    (
+        first_time_setup
+    ) & setup_pid=$!
+    # Keep the user informed during the one-time setup (~30 s).
+    progress=$(kdialog --title "$title" --progressbar "Setting up Windows compatibility (one time only)…" 0)
+    wait $setup_pid
+    qdbus6 $progress close >/dev/null 2>&1 || dbus-send --session --dest="${progress% *}" "${progress#* }" org.kde.kdialog.ProgressDialog.close >/dev/null 2>&1
+fi
+map_cd_drive
+
+# 16-bit Windows programs (lots of 1995-98 setup.exe stubs, e.g. InstallShield
+# 5) can't run in 64-bit Wine. Wine hands them to winevdm.exe, which Arch's
+# Wine doesn't ship; otvdm is a drop-in replacement, so install it as
+# winevdm.exe and every 16-bit program works, however it's launched.
+vdm_dir=$PREFIX/drive_c/windows/syswow64
+if [[ -d $OTVDM && -d $vdm_dir && ! -f $vdm_dir/winevdm.exe ]]; then
+    cp -r "$OTVDM"/. "$vdm_dir"/
+    cp "$OTVDM/otvdm.exe" "$vdm_dir/winevdm.exe"
+fi
+
+# --------------------------------------------------- what to run ---
+open=$(disc_inf_value "$mp" '\(open\|shellexecute\)' || true) args=""
+title=$(disc_title "$mp" "$(basename "$mp")")
+if [[ -n $open ]]; then
+    # "open=SETUP.EXE /autorun" -> program + arguments (paths are disc-relative).
+    prog=${open%% *}; [[ $open == *" "* ]] && args=${open#* }
+    prog=${prog//\\//}
+    exe=$(ifind "$mp" "$prog" || true)
+fi
+if [[ -z ${exe:-} ]]; then
+    for c in setup.exe install.exe autorun.exe setup/setup.exe install/setup.exe; do
+        exe=$(ifind "$mp" "$c") && break
+    done
+fi
+if [[ -z ${exe:-} ]]; then
+    exe=$(kdialog --title "$title" --getopenfilename "$mp" "*.exe *.EXE *.bat *.BAT|Programs") || exit 0
+fi
+
+# Windows-style path on D: (installers remember where they were installed from).
+rel=${exe#"$mp"/}
+winpath="D:\\${rel//\//\\}"
+
+cmd=(wine "$winpath")
+# shellcheck disable=SC2206  # autorun arguments are a simple word list
+[[ -n $args ]] && cmd+=($args)
+
+# Disc copy protection from the 2000s doesn't run under Wine (or Windows 10+).
+prot=$(disc_protection "$mp")
+if [[ -n $prot ]]; then
+    kdialog --title "$title" --icon dialog-warning --warningcontinuecancel \
+"$title uses $prot copy protection.
+
+The game will install normally, but $prot can't run on Linux (or on modern
+Windows), so the game may refuse to start from the disc.
+
+Many games got an official patch later that removes the disc check; install
+that after setup if the game won't start." --continue-label "Install anyway" || exit 0
+fi
+
+# ---------------------------------------------------------- run it ---
+echo $$ > "$LOCK"
+trap 'rm -f "$LOCK"' EXIT
+popup "Starting $title…"
+log=$STATE/logs/$(tr -c 'A-Za-z0-9._-' '_' <<<"$title" | sed 's/_*$//').log
+(
+    cd "$CDLINK/$(dirname "$rel")" 2>/dev/null || cd "$CDLINK"
+    WINEDEBUG=${WINEDEBUG/-all/err+all} "${cmd[@]}"
+) >"$log" 2>&1
+rc=$?
+# Installers often hand off to child processes and exit early; wait for all
+# of them so "Insert Disc 2" prompts and finishing steps aren't cut off.
+wineserver -w
+
+if grep -qE "could not load|File not found|cannot find|not a valid" "$log"; then
+    kdialog --title "$title" --icon dialog-error --error \
+        "Setup couldn't start (exit code $rc).\n\nDetails were saved to:\n$log"
+    exit 1
+fi
+popup "$title is done. Installed programs are in the start menu under Wine › Programs."

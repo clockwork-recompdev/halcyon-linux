@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Calendar
+Exec=firefox --new-window https://app.hey.com/calendar/weeks/
+Icon=halcyon-logo
+NoDisplay=true
+X-KDE-Shortcuts=Meta+Shift+C

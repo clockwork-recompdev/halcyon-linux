@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Halcyon Gaming Setup: pick gaming components, then install them.
+# The GUI runs as the user; installing happens in /usr/lib/halcyon/gaming-install via pkexec.
+set -euo pipefail
+
+title="Halcyon Gaming Setup"
+gpu=$(lspci -nn 2>/dev/null | grep -Ei 'vga|3d|display' || true)
+has() { grep -qi "$1" <<<"$gpu"; }
+
+vendor=""
+has 10de && vendor+="NVIDIA "
+has 1002 && vendor+="AMD "
+has 8086 && vendor+="Intel "
+vendor=${vendor% }
+
+items=(
+    gpu        "Graphics drivers for ${vendor:-your GPU} (Vulkan, 32-bit, video decoding)" on
+    steam      "Steam (with Proton)"                                    on
+    millennium "Millennium: themes and plugins for Steam"               off
+    gamemode   "GameMode: CPU/GPU performance boost while gaming"       on
+    mangohud   "MangoHud + GOverlay: FPS / temperature overlay"         on
+    wine       "Wine + Winetricks: run Windows games and apps"          on
+    lutris     "Lutris: one place for GOG, Epic, emulators, installers" on
+    heroic     "Heroic Games Launcher: Epic, GOG, Amazon (Flatpak)"     on
+    protonup   "ProtonUp-Qt: install Proton-GE and friends (Flatpak)"   on
+    gamescope  "Gamescope: Steam Deck-style game compositor"            off
+    vesktop    "Vesktop: Discord with Vencord, screen share with audio (Flatpak)" off
+    prism      "Prism Launcher: Minecraft"                              off
+    zen        "Zen kernel: tuned for desktop/gaming latency (advanced)" off
+)
+
+detected="Graphics:"
+has 1002 && detected+=" AMD"
+has 8086 && detected+=" Intel"
+has 10de && detected+=" NVIDIA"
+[[ $detected == "Graphics:" ]] && detected+=" unknown"
+
+choice=$(kdialog --title "$title" --icon applications-games --geometry 640x520 \
+    --checklist "Choose what to install. You can run this again any time.\n$detected" \
+    "${items[@]}") || exit 0
+eval "picked=($choice)"   # kdialog returns a quoted, space-separated list
+(( ${#picked[@]} )) || exit 0
+
+kdialog --title "$title" --yesno "Install ${#picked[@]} component(s)?\n\nThis downloads a few GB and needs your password." || exit 0
+
+# AUR packages build as you (not root), after the system part finishes.
+aur=()
+for p in "${picked[@]}"; do [[ $p == millennium ]] && aur+=(millennium); done
+[[ " ${picked[*]} " == *" millennium "* && " ${picked[*]} " != *" steam "* ]] && picked+=(steam)
+
+script='pkexec /usr/lib/halcyon/gaming-install "$@" || { read -rp "Press Enter to close." _; exit 1; }'
+if (( ${#aur[@]} )); then
+    script+='; echo; halcyon-aur --yes install '"${aur[*]}"'; read -rp "All done. Press Enter to close." _'
+fi
+konsole --hide-menubar -p tabtitle="$title" -e bash -c "$script" halcyon-gaming "${picked[@]}"

@@ -1,0 +1,14 @@
+{
+    "KPackageStructure": "Plasma/LookAndFeel",
+    "KPlugin": {
+        "Authors": [{ "Name": "Halcyon Linux" }],
+        "Category": "",
+        "Description": "Sky, water and glass: the Halcyon Aero desktop",
+        "Id": "org.halcyon.desktop",
+        "License": "GPL-3.0-or-later",
+        "Name": "Halcyon Aero",
+        "Version": "1.0"
+    },
+    "Keywords": "Desktop;Workspace;Appearance;Look and Feel;Aero;Halcyon;",
+    "X-Plasma-APIVersion": "2"
+}

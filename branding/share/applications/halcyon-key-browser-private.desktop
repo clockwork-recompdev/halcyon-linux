@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Browser (private)
+Exec=firefox --private-window
+Icon=halcyon-logo
+NoDisplay=true
+X-KDE-Shortcuts=Meta+Shift+Alt+B

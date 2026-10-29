@@ -1,0 +1,145 @@
+# Local package: built straight from this directory by ../build.sh.
+pkgname=halcyon-branding
+pkgver=1.0
+pkgrel=1
+pkgdesc="Halcyon Linux Frutiger Aero theme: Plasma style, window decoration, SDDM, Plymouth, defaults"
+arch=(any)
+license=(GPL-3.0-or-later)
+depends=(plasma-workspace kwin sddm plymouth oxygen oxygen-icons adobe-source-sans-fonts breeze-gtk konsole
+         kdialog yakuake qt6-declarative pciutils polkit udisks2)
+makedepends=(python librsvg imagemagick)
+install=halcyon-branding.install
+_krohnkite=0.9.9.2
+_otvdm=0.9.0
+source=("krohnkite-$_krohnkite.kwinscript::https://github.com/anametologin/krohnkite/releases/download/$_krohnkite/krohnkite.kwinscript"
+        "otvdm-$_otvdm.zip::https://github.com/otya128/winevdm/releases/download/v$_otvdm/otvdm-v$_otvdm.zip")
+noextract=("krohnkite-$_krohnkite.kwinscript" "otvdm-$_otvdm.zip")
+sha256sums=('42f7f66531d366c74b5fc860381da3517ccb4cdccd1f80c122fcab6e9a8fcf7e'
+            '842b11aed5fa81f3e1d4272e0ee7d37f1a5a8f936de825309dda672835e16fd4')
+
+_assets="$startdir/assets"
+
+_logo() {  # _logo SIZE OUT  -> square, transparent-padded logo
+    local src="$_assets/logo.png"
+    [[ -f $src ]] || src="$_assets/logo.svg"
+    # Trim transparent margins first so the logo fills its square (bigger in the panel).
+    magick -background none -density 384 "$src" -trim +repage -resize "$1x$1" -gravity center -extent "$1x$1" "$2"
+}
+
+_wallpapers() {
+    find "$_assets/wallpapers" -maxdepth 1 -type f \
+        \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) | sort
+}
+
+_default_wallpaper() {
+    local w
+    w=$(_wallpapers | grep -Ei '/default\.[a-z]+$' | head -1)
+    [[ -n $w ]] || w=$(_wallpapers | head -1)
+    echo "$w"
+}
+
+prepare() {
+    [[ -f $_assets/logo.png || -f $_assets/logo.svg ]] ||
+        { error "Missing branding/assets/logo.png (or logo.svg)"; return 1; }
+    [[ -n $(_default_wallpaper) ]] ||
+        { error "No wallpapers in branding/assets/wallpapers/"; return 1; }
+}
+
+build() {
+    cd "$startdir"
+    python3 ../tools/gen_theme.py
+    python3 ../tools/gen_keys.py
+    # Built-in media player skin: SVG -> PNG -> Halcyon.wmz
+    python3 ../tools/gen_player_skin.py
+    local sk="$srcdir/playerskin"; rm -rf "$sk"; mkdir -p "$sk"
+    cp "$startdir/../player/skins/halcyon/halcyon.wms" "$sk/"
+    for f in "$startdir"/../player/skins/halcyon/*.svg; do rsvg-convert "$f" -o "$sk/$(basename "${f%.svg}").png"; done
+    (cd "$sk" && python3 -c "import zipfile,glob; z=zipfile.ZipFile('Halcyon.wmz','w',zipfile.ZIP_DEFLATED); [z.write(f) for f in ['halcyon.wms']+sorted(glob.glob('*.png'))]")
+    mkdir -p "$srcdir/gen"
+    cd "$srcdir/gen"
+    rsvg-convert -w 18 -h 18 "$startdir/share/halcyon/orb.svg" -o orb.png
+    for s in 512 256 128 64 48; do _logo $s logo-$s.png; done
+    magick "$(_default_wallpaper)" -resize '1920x1080^' -gravity center -extent 1920x1080 background.png
+
+    # kdeglobals = Halcyon defaults + the full colour scheme (apps read colours
+    # from kdeglobals, not from the scheme file).
+    { cat "$startdir/etc/xdg/kdeglobals.in"; echo
+      awk '/^\[/{skip=($0=="[General]")} !skip' "$startdir/share/color-schemes/HalcyonAero.colors"
+    } > kdeglobals
+}
+
+package() {
+    local share="$pkgdir/usr/share" gen="$srcdir/gen"
+    install -d "$share"
+    cp -r "$startdir/share/." "$share/"
+    rm -rf "$share/halcyon/orb.svg"
+
+    # /etc defaults
+    install -Dm644 "$startdir/etc/pacman.d/halcyon-mirrorlist" "$pkgdir/etc/pacman.d/halcyon-mirrorlist"
+    for u in halcyon-update-check.service halcyon-update-check.timer; do
+        install -Dm644 "$startdir/systemd/$u" "$pkgdir/usr/lib/systemd/user/$u"
+    done
+    install -Dm644 "$startdir/etc/sddm.conf.d/10-halcyon.conf" "$pkgdir/etc/sddm.conf.d/10-halcyon.conf"
+    for f in kwinrc plasmarc kcminputrc ksplashrc kscreenlockerrc konsolerc \
+             fastfetch/config.jsonc autostart/halcyon-yakuake.desktop autostart/halcyon-autoplay.desktop autostart/halcyon-screensaver.desktop \
+             plasma-workspace/env/halcyon-shortcuts.sh; do
+        install -Dm644 "$startdir/etc/xdg/$f" "$pkgdir/etc/xdg/$f"
+    done
+    install -Dm644 "$gen/kdeglobals" "$pkgdir/etc/xdg/kdeglobals"
+
+    # Logo
+    install -Dm644 "$gen/logo-512.png" "$share/pixmaps/halcyon-logo.png"
+    for s in 256 128 64 48; do
+        install -Dm644 "$gen/logo-$s.png" "$share/icons/hicolor/${s}x${s}/apps/halcyon-logo.png"
+    done
+
+    # Splash screens and greeter
+    local lnf="$share/plasma/look-and-feel/org.halcyon.desktop/contents/splash/images"
+    install -Dm644 "$gen/logo-512.png" "$lnf/logo.png"
+    install -Dm644 "$gen/orb.png" "$lnf/orb.png"
+    install -Dm644 "$gen/background.png" "$lnf/background.png"
+    local ply="$share/plymouth/themes/halcyon"
+    install -Dm644 "$gen/logo-256.png" "$ply/logo.png"
+    install -Dm644 "$gen/orb.png" "$ply/orb.png"
+    install -Dm644 "$gen/logo-256.png" "$share/sddm/themes/halcyon/logo.png"
+    install -Dm644 "$gen/background.png" "$share/sddm/themes/halcyon/background.png"
+
+    # Wallpapers: the default becomes "Halcyon", the rest "Halcyon <Name>".
+    local def w base name dir ext size
+    def=$(_default_wallpaper)
+    while read -r w; do
+        base=$(basename "$w"); ext=${base##*.}; name=${base%.*}
+        if [[ $w == "$def" ]]; then dir=Halcyon; name=Halcyon; else dir="Halcyon-$name"; name="Halcyon ${name//[_-]/ }"; fi
+        size=$(magick identify -format '%wx%h' "$w[0]")
+        install -Dm644 "$w" "$share/wallpapers/$dir/contents/images/$size.${ext,,}"
+        magick "$w[0]" -resize 400x250^ -gravity center -extent 400x250 "$share/wallpapers/$dir/contents/screenshot.png"
+        printf '{\n    "KPlugin": {\n        "Authors": [{ "Name": "Halcyon Linux" }],\n        "Id": "%s",\n        "License": "CC-BY-SA-4.0",\n        "Name": "%s"\n    }\n}\n' \
+            "$dir" "$name" > "$share/wallpapers/$dir/metadata.json"
+    done < <(_wallpapers)
+
+    # Tools, os-release branding, desktop package list
+    for f in halcyon-install halcyon-mode halcyon-keys halcyon-gaming halcyon-dev \
+             halcyon-disc-install halcyon-autoplay-dialog halcyon-aur halcyon-screensaver halcyon-player halcyon-wintheme halcyon-update; do
+        install -Dm755 "$startdir/bin/$f" "$pkgdir/usr/bin/$f"
+    done
+    install -Dm755 "$startdir/lib/gaming-install" "$pkgdir/usr/lib/halcyon/gaming-install"
+    install -Dm755 "$startdir/lib/apply-shortcuts" "$pkgdir/usr/lib/halcyon/apply-shortcuts"
+    install -Dm755 "$startdir/lib/autoplay-daemon" "$pkgdir/usr/lib/halcyon/autoplay-daemon"
+    install -Dm644 "$startdir/lib/disc-lib.sh" "$pkgdir/usr/lib/halcyon/disc-lib.sh"
+
+    # Media player
+    install -d "$share/halcyon-player/halcyon_player" "$share/halcyon-player/skins"
+    install -m644 "$startdir"/../player/halcyon_player/*.py "$share/halcyon-player/halcyon_player/"
+    install -m644 "$srcdir/playerskin/Halcyon.wmz" "$share/halcyon-player/skins/"
+
+    # otvdm (GPL-2.0): runs 16-bit Windows installers under 64-bit Wine.
+    install -d "$share/halcyon/otvdm"
+    bsdtar -xf "$srcdir/otvdm-$_otvdm.zip" -C "$share/halcyon/otvdm" --strip-components=1
+
+    # Krohnkite dynamic tiling (MIT), used by tiling mode; off until halcyon-mode enables it.
+    install -d "$share/kwin/scripts/krohnkite"
+    bsdtar -xf "$srcdir/krohnkite-$_krohnkite.kwinscript" -C "$share/kwin/scripts/krohnkite"
+    install -Dm755 "$startdir/lib/apply-os-release" "$pkgdir/usr/lib/halcyon/apply-os-release"
+    install -Dm644 "$startdir/hooks/halcyon-os-release.hook" "$share/libalpm/hooks/halcyon-os-release.hook"
+    install -Dm644 "$startdir/desktop-packages.txt" "$share/halcyon/desktop-packages.txt"
+}

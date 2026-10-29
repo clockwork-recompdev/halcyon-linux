@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Halcyon updater.
+#   halcyon-update            update everything (system + Halcyon, AUR, Flatpak) in a terminal
+#   halcyon-update --check    count available updates and notify (run daily by a timer)
+set -uo pipefail
+c=$'\e[38;2;30;155;224m' g=$'\e[38;2;108;192;74m' b=$'\e[1m' r=$'\e[0m'
+
+count_updates() {
+    local repo aur=0 fp=0
+    repo=$(checkupdates 2>/dev/null | wc -l)
+    if command -v halcyon-aur >/dev/null && pacman -Qmq >/dev/null 2>&1; then
+        aur=$(halcyon-aur --count 2>/dev/null || echo 0)
+    fi
+    command -v flatpak >/dev/null && fp=$(flatpak remote-ls --updates 2>/dev/null | wc -l)
+    echo "$repo $aur $fp"
+}
+
+if [[ ${1:-} == --check ]]; then
+    read -r repo aur fp < <(count_updates)
+    total=$((repo + aur + fp))
+    (( total > 0 )) || exit 0
+    msg="$total update(s) available"
+    (( aur || fp )) && msg+=" ($repo system, $aur AUR, $fp Flatpak)"
+    action=$(notify-send --app-name="Halcyon" --icon=system-software-update \
+        --action=update="Update now" "Halcyon updates" "$msg" 2>/dev/null)
+    [[ $action == update ]] && setsid -f konsole --hide-menubar -e halcyon-update
+    exit 0
+fi
+
+if [[ ! -t 1 ]]; then exec konsole --hide-menubar -e "$0" "$@"; fi
+printf '%s%s  Updating Halcyon%s\n\n' "$c" "$b" "$r"
+printf '%s==>%s %sSystem and Halcyon packages%s\n' "$c" "$r" "$b" "$r"
+sudo pacman -Syu || { read -rp "Press Enter to close." _; exit 1; }
+if pacman -Qmq >/dev/null 2>&1 && command -v halcyon-aur >/dev/null; then
+    printf '\n%s==>%s %sAUR packages%s\n' "$c" "$r" "$b" "$r"
+    halcyon-aur --yes -u
+fi
+if command -v flatpak >/dev/null; then
+    printf '\n%s==>%s %sFlatpak apps%s\n' "$c" "$r" "$b" "$r"
+    flatpak update -y
+fi
+printf '\n%s%sAll up to date.%s\n' "$g" "$b" "$r"
+read -rp "Press Enter to close." _

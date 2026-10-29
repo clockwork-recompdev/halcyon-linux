@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Activity (btop)
+Exec=konsole --hide-menubar -e btop
+Icon=halcyon-logo
+NoDisplay=true
+X-KDE-Shortcuts=Meta+Shift+T

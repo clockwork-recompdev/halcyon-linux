@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Gaming Setup
+GenericName=Install Steam, Lutris, Wine and more
+Comment=Choose and install gaming software
+Exec=halcyon-gaming
+Icon=applications-games
+Categories=Game;Settings;
+Keywords=steam;proton;wine;lutris;heroic;mangohud;gamemode;

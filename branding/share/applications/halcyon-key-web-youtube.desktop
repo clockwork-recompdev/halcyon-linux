@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=YouTube
+Exec=firefox --new-window https://youtube.com/
+Icon=halcyon-logo
+NoDisplay=true
+X-KDE-Shortcuts=Meta+Shift+Y

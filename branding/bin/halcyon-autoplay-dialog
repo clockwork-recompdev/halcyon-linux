@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# halcyon-autoplay-dialog <kind> <title> <mountpoint> <device>
+# Shows the AutoPlay chooser; prints "<action>|always" or "<action>|once".
+set -uo pipefail
+kind=$1 title=$2 mp=${3:-} dev=${4:-}
+
+opts=()  # id \t icon \t label \t description
+add() { opts+=("$1"$'\t'"$2"$'\t'"$3"$'\t'"$4"); }
+case $kind in
+    windows)
+        add install  system-software-install "Install or run program" "Runs the disc's setup, just like on Windows"
+        add browse   folder-open             "Open folder to view files" "Using Dolphin"
+        what="software and game discs" ;;
+    dos)
+        add dosbox   applications-games      "Run in DOSBox" "For MS-DOS games and programs"
+        add browse   folder-open             "Open folder to view files" "Using Dolphin"
+        what="MS-DOS discs" ;;
+    audio)
+        add play-cd  media-optical-audio     "Play audio CD" "Using Halcyon Media Player"
+        add rip-cd   media-optical-audio     "Rip music from CD" "Copy tracks to your Music folder (FLAC, MP3 or Opus)"
+        what="audio CDs" ;;
+    dvdvideo)
+        add play-dvd media-optical-dvd-video "Play DVD movie" "Using VLC"
+        add browse   folder-open             "Open folder to view files" "Using Dolphin"
+        what="DVD movies" ;;
+    bluray)
+        add play-bd  media-optical-blu-ray   "Play Blu-ray movie" "Using VLC (unencrypted discs only)"
+        add browse   folder-open             "Open folder to view files" "Using Dolphin"
+        what="Blu-ray movies" ;;
+    blank)
+        add burn     media-optical-recordable "Burn files to disc" "Using K3b"
+        what="blank discs" ;;
+    *)
+        add browse   folder-open             "Open folder to view files" "Using Dolphin"
+        add install  system-run              "Run a program from this disc" "Pick a setup or game program"
+        what="data discs" ;;
+esac
+add nothing dialog-cancel "Take no action" ""
+
+# Use the disc's own icon (autorun.inf "icon="), like Windows did.
+source /usr/lib/halcyon/disc-lib.sh
+icon=media-optical
+png=${XDG_RUNTIME_DIR:-/tmp}/halcyon-disc-icon.png
+[[ -n $mp ]] && disc_icon_png "$mp" "$png" && icon=file://$png
+
+export HALCYON_AP_TITLE=$title HALCYON_AP_WHAT=$what HALCYON_AP_ICON=$icon
+export HALCYON_AP_OPTIONS=$(printf '%s\n' "${opts[@]}")
+QML_XHR_ALLOW_FILE_READ=1 /usr/lib/qt6/bin/qml /usr/share/halcyon/autoplay.qml >/dev/null 2>&1
+code=$?
+(( code >= 10 )) || exit 1
+always=once
+(( code >= 110 )) && { always=always; code=$((code - 100)); }
+i=$((code - 10))
+(( i < ${#opts[@]} )) || exit 1
+echo "${opts[i]%%$'\t'*}|$always"

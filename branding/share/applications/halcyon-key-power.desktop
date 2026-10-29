@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Power settings
+Exec=kcmshell6 kcm_powerdevilprofilesconfig
+Icon=halcyon-logo
+NoDisplay=true
+X-KDE-Shortcuts=Meta+Ctrl+P

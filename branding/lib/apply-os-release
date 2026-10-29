@@ -1,0 +1,12 @@
+#!/bin/sh
+# Rebrand os-release. Re-run by a pacman hook whenever 'filesystem' updates it.
+cat > /usr/lib/os-release <<'EOR'
+NAME="Halcyon Linux"
+PRETTY_NAME="Halcyon Linux"
+ID=halcyon
+ID_LIKE=arch
+BUILD_ID=rolling
+ANSI_COLOR="38;2;30;155;224"
+LOGO=halcyon-logo
+DOCUMENTATION_URL="https://wiki.archlinux.org/"
+EOR

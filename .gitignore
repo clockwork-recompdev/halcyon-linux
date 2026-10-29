@@ -1,0 +1,12 @@
+# build output
+/work/
+/out/
+/vm/
+# dev environment
+/player/.venv/
+__pycache__/
+# third-party WMP skins used for testing (not ours to redistribute)
+/player/skins/test/
+# personal screenshots / bug captures
+/shot.png
+/player/bugs/*.png

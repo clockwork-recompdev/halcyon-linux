@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Halcyon Aero
+Comment=Glossy aqua glass window decoration
+X-KDE-PluginInfo-Author=Halcyon Linux
+X-KDE-PluginInfo-Name=HalcyonAero
+X-KDE-PluginInfo-Version=1.0
+X-KDE-PluginInfo-License=GPL-3.0-or-later
+X-KDE-ServiceTypes=KWin/Decoration

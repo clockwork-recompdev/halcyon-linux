@@ -1,0 +1,6 @@
+[Unit]
+Description=Check for Halcyon updates
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/halcyon-update --check

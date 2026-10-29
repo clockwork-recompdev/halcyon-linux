@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Install Halcyon Linux
+Comment=Install Halcyon Linux to this computer
+Icon=halcyon-logo
+Exec=konsole --hide-menubar -e sudo /usr/bin/halcyon-install
+Terminal=false

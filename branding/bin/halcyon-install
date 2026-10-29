@@ -1,0 +1,279 @@
+#!/usr/bin/env bash
+# Halcyon Linux installer: a few questions, then copy the live system to disk.
+#
+# Fast because nothing is downloaded: the compressed system image the live ISO
+# booted from is unpacked straight onto the target disk, then the live-only
+# bits are removed and the bootloader is set up.
+#
+# Disk layout (whole disk, GPT, boots on both BIOS and UEFI):
+#   1  BIOS boot   1 MiB    Limine stage 2 for BIOS machines
+#   2  EFI/boot    2 GiB    FAT32, mounted at /boot (kernels + Limine)
+#   3  Halcyon     rest     btrfs (zstd), optionally inside LUKS2
+set -euo pipefail
+
+[[ $EUID -eq 0 ]] || exec sudo -- "$0" "$@"
+
+c=$'\e[38;2;30;155;224m' g=$'\e[38;2;108;192;74m' y=$'\e[38;2;240;180;48m'
+red=$'\e[38;2;232;84;56m' d=$'\e[2m' b=$'\e[1m' r=$'\e[0m'
+TARGET=/mnt/halcyon-target
+LOG=/var/log/halcyon-install.log
+FZF=(fzf --height=60% --layout=reverse --border=rounded --border-label=" Halcyon Installer "
+     --color=border:#1e9be0,label:#7fe0ff,prompt:#1e9be0,pointer:#6cc04a,hl:#7fe0ff,hl+:#7fe0ff)
+
+step() { printf '\n%s●%s %s%s%s\n' "$c" "$r" "$b" "$*" "$r"; }
+ok()   { printf '  %s✓%s %s\n' "$g" "$r" "$*"; }
+die()  { printf '\n%s✗ %s%s\n  Details: %s\n' "$red" "$*" "$r" "$LOG"; read -rp "Press Enter to close. " _; exit 1; }
+run()  { "$@" >>"$LOG" 2>&1 || die "Failed: $*"; }
+
+# ------------------------------------------------------------- the image ---
+SFS=$(ls /run/archiso/bootmnt/*/x86_64/airootfs.sfs 2>/dev/null | head -1)
+BOOTDIR=$(dirname "$(dirname "$SFS")")/boot/x86_64
+[[ -f $SFS && -f $BOOTDIR/vmlinuz-linux ]] || die "Run this from the Halcyon live USB/DVD."
+LIVE_DISK=$(lsblk -no PKNAME "$(findmnt -no SOURCE /run/archiso/bootmnt)" 2>/dev/null || true)
+UEFI=0; [[ -d /sys/firmware/efi ]] && UEFI=1
+
+clear
+cat <<EOF
+${c}${b}
+   ╭──────────────────────────────────────╮
+   │       Welcome to Halcyon Linux       │
+   ╰──────────────────────────────────────╯${r}
+   ${d}A few questions, then about a minute to install.${r}
+
+EOF
+
+# ------------------------------------------------------------- questions ---
+ask() {  # ask VAR "Prompt" [default] [secret]
+    local __v __p=$2 __def=${3:-} __secret=${4:-}
+    while :; do
+        if [[ -n $__secret ]]; then read -rsp "  $__p: " __v; echo
+        else read -rep "  $__p${__def:+ ${d}[$__def]$r}: " __v; fi
+        __v=${__v:-$__def}
+        [[ -n $__v ]] && break
+    done
+    printf -v "$1" '%s' "$__v"
+}
+
+ask FULLNAME "Your name"
+default_user=$(tr 'A-Z' 'a-z' <<<"${FULLNAME%% *}" | tr -cd 'a-z0-9_-')
+while :; do
+    ask USERNAME "Username" "${default_user:-user}"
+    [[ $USERNAME =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] && break
+    echo "  ${y}Lowercase letters, numbers, - and _ only, starting with a letter.$r"
+done
+while :; do
+    ask PASSWORD "Password" "" secret
+    ask PASSWORD2 "Password again" "" secret
+    [[ $PASSWORD == "$PASSWORD2" ]] && break
+    echo "  ${y}Those didn't match, try again.$r"
+done
+ask HOSTNAME "Computer name" "halcyon"
+
+# Timezone: guess from the network, let the user confirm or pick.
+guess=$(curl -fs --max-time 4 https://ipapi.co/timezone 2>/dev/null || true)
+[[ -f /usr/share/zoneinfo/$guess ]] || guess=""
+TIMEZONE=$( (echo "${guess:-UTC}"; timedatectl list-timezones) | awk '!s[$0]++' |
+    "${FZF[@]}" --prompt "Timezone › " --header "Type to search · Enter to choose") || exit 0
+ok "Timezone: $TIMEZONE"
+
+# Keyboard: keep the live session's layout unless the user picks another.
+KEYMAP=$( (echo us; localectl list-keymaps) | awk '!s[$0]++' |
+    "${FZF[@]}" --prompt "Keyboard › " --header "Keyboard layout (us is standard)") || exit 0
+ok "Keyboard: $KEYMAP"
+
+# Disk: whole-disk install, never the disk we booted from.
+disks=$(lsblk -dnpo NAME,SIZE,MODEL,TRAN,TYPE | awk '$NF=="disk"' |
+    grep -v -E "^/dev/(loop|sr|zram)" | { [[ -n $LIVE_DISK ]] && grep -v "^/dev/$LIVE_DISK " || cat; })
+[[ -n $disks ]] || die "No disk found to install to."
+pick=$(sed 's/ disk$//' <<<"$disks" | "${FZF[@]}" --prompt "Disk › " \
+    --header "Choose the disk for Halcyon. EVERYTHING on it will be erased.") || exit 0
+DISK=${pick%% *}
+ok "Disk: $pick"
+
+ENCRYPT=no
+read -rp "  Encrypt the disk with your password? [y/N] " a
+[[ ${a,,} == y* ]] && ENCRYPT=yes
+
+cat <<EOF
+
+  ${b}Ready to install:${r}
+    Name      $FULLNAME ($USERNAME)
+    Computer  $HOSTNAME
+    Timezone  $TIMEZONE · keyboard $KEYMAP
+    Disk      $pick
+    Encrypted $ENCRYPT
+
+  ${red}${b}All data on $DISK will be erased.${r}
+EOF
+read -rp "  Type ${b}erase${r} to continue: " confirm
+[[ $confirm == erase ]] || { echo "  Cancelled; nothing was changed."; exit 0; }
+
+START=$(date +%s)
+: >"$LOG"
+
+# ------------------------------------------------------------- partition ---
+step "Preparing $DISK"
+umount -R "$TARGET" 2>/dev/null || true
+swapoff -a 2>/dev/null || true
+for p in $(lsblk -lnpo NAME "$DISK" | tail -n +2); do umount "$p" 2>/dev/null || true; done
+cryptsetup close halcyon-root 2>/dev/null || true
+run wipefs -af "$DISK"
+run sgdisk --zap-all "$DISK"
+run sgdisk -n1:1MiB:+1MiB -t1:ef02 -c1:HALCYON_BIOS \
+           -n2:0:+2GiB   -t2:ef00 -c2:HALCYON_BOOT \
+           -n3:0:0       -t3:8304 -c3:HALCYON_ROOT "$DISK"
+run partprobe "$DISK"; udevadm settle
+part() { lsblk -lnpo NAME,PARTLABEL "$DISK" | awk -v l="$1" '$2==l {print $1}'; }
+BOOTP=$(part HALCYON_BOOT) ROOTP=$(part HALCYON_ROOT)
+[[ -b $BOOTP && -b $ROOTP ]] || die "Couldn't find the new partitions."
+ok "Partitioned"
+
+ROOTDEV=$ROOTP
+if [[ $ENCRYPT == yes ]]; then
+    printf '%s' "$PASSWORD" | run cryptsetup luksFormat --type luks2 --batch-mode --key-file=- "$ROOTP"
+    printf '%s' "$PASSWORD" | run cryptsetup open --key-file=- "$ROOTP" halcyon-root
+    ROOTDEV=/dev/mapper/halcyon-root
+    ok "Encrypted"
+fi
+
+run mkfs.fat -F32 -n HALCYON "$BOOTP"
+run mkfs.btrfs -f -L Halcyon "$ROOTDEV"
+mkdir -p "$TARGET"
+run mount "$ROOTDEV" "$TARGET"
+for sv in @ @home @log @pkg; do run btrfs subvolume create "$TARGET/$sv"; done
+run umount "$TARGET"
+OPTS=noatime,compress=zstd:1
+run mount -o "$OPTS,subvol=@" "$ROOTDEV" "$TARGET"
+mkdir -p "$TARGET"/{boot,home,var/log,var/cache/pacman/pkg}
+run mount -o "$OPTS,subvol=@home" "$ROOTDEV" "$TARGET/home"
+run mount -o "$OPTS,subvol=@log" "$ROOTDEV" "$TARGET/var/log"
+run mount -o "$OPTS,subvol=@pkg" "$ROOTDEV" "$TARGET/var/cache/pacman/pkg"
+run mount "$BOOTP" "$TARGET/boot"
+ok "Formatted"
+
+# ------------------------------------------------------------ copy system ---
+step "Copying Halcyon to disk"
+# unsquashfs draws its own progress bar.
+unsquashfs -f -p "$(nproc)" -d "$TARGET" "$SFS" 2>>"$LOG" | stdbuf -o0 tr "\r" "\n" | { grep --line-buffered -o '[0-9]*%' || true; } |
+    while read -r pct; do printf '\r  %s%s%s copied ' "$c" "$pct" "$r"; done ||
+    die "Copying the system failed."
+printf '\r%*s\r' 30 ''
+cp "$BOOTDIR/vmlinuz-linux" "$TARGET/boot/"
+ok "System copied"
+
+# ------------------------------------------------------- live -> installed ---
+step "Setting up your system"
+ch() { arch-chroot "$TARGET" "$@" >>"$LOG" 2>&1 || die "Failed in new system: $*"; }
+
+# Drop everything that only makes sense on the live medium.
+rm -f "$TARGET"/etc/sddm.conf.d/20-live-autologin.conf \
+      "$TARGET"/etc/sudoers.d/liveuser \
+      "$TARGET"/etc/mkinitcpio.conf.d/archiso.conf \
+      "$TARGET"/etc/systemd/journald.conf.d/volatile-storage.conf \
+      "$TARGET"/etc/systemd/logind.conf.d/do-not-suspend.conf \
+      "$TARGET"/etc/systemd/system/mnt-halcyon.mount \
+      "$TARGET"/etc/systemd/system/multi-user.target.wants/{mnt-halcyon.mount,sshd.service,pacman-init.service,choose-mirror.service,livecd-talk.service} \
+      "$TARGET"/etc/systemd/system/{pacman-init,choose-mirror,livecd-talk,livecd-alsa-unmuter}.service \
+      "$TARGET"/etc/systemd/system/sound.target.wants/livecd-alsa-unmuter.service \
+      "$TARGET"/etc/systemd/system/etc-pacman.d-gnupg.mount \
+      "$TARGET"/etc/skel/Desktop/halcyon-install.desktop \
+      "$TARGET"/etc/ssh/sshd_config.d/10-archiso.conf \
+      "$TARGET"/etc/systemd/resolved.conf.d/archiso.conf \
+      "$TARGET"/etc/systemd/system-generators/systemd-gpt-auto-generator \
+      "$TARGET"/usr/local/bin/{choose-mirror,Installation_guide,livecd-sound} \
+      "$TARGET"/root/{.automated_script.sh,.zlogin} "$TARGET"/etc/motd
+rm -rf --one-file-system -- "$TARGET/usr/share/halcyon/pkgs"
+# The live user's home is a plain directory on the new disk (no mounts inside).
+[[ -d $TARGET/home/liveuser ]] && rm -rf --one-file-system -- "$TARGET/home/liveuser"
+sed -i '/^liveuser:/d' "$TARGET"/etc/{passwd,shadow,group,gshadow} 2>/dev/null || true
+cp /etc/pacman.d/mirrorlist "$TARGET/etc/pacman.d/mirrorlist"
+
+# Identity, time, language
+echo "$HOSTNAME" > "$TARGET/etc/hostname"
+printf '127.0.0.1 localhost\n::1 localhost\n127.0.1.1 %s.localdomain %s\n' "$HOSTNAME" "$HOSTNAME" > "$TARGET/etc/hosts"
+ln -sf "/usr/share/zoneinfo/$TIMEZONE" "$TARGET/etc/localtime"
+ch hwclock --systohc
+sed -i 's/^#\(en_US.UTF-8 UTF-8\)/\1/' "$TARGET/etc/locale.gen"
+ch locale-gen
+echo "LANG=en_US.UTF-8" > "$TARGET/etc/locale.conf"
+echo "KEYMAP=$KEYMAP" > "$TARGET/etc/vconsole.conf"
+ok "Language, time and keyboard"
+
+# The user
+ch useradd -m -G wheel -s /bin/bash -c "$FULLNAME" "$USERNAME"
+printf '%s:%s\n' "$USERNAME" "$PASSWORD" | arch-chroot "$TARGET" chpasswd >>"$LOG" 2>&1 || die "Couldn't set the password."
+ch passwd -l root
+echo '%wheel ALL=(ALL:ALL) ALL' > "$TARGET/etc/sudoers.d/10-wheel"
+chmod 440 "$TARGET/etc/sudoers.d/10-wheel"
+ok "User $USERNAME"
+
+# Package keys (the live system kept these on a throwaway tmpfs)
+ch pacman-key --init
+ch pacman-key --populate archlinux
+ok "Package signing keys"
+
+# fstab + swap in RAM
+genfstab -U "$TARGET" > "$TARGET/etc/fstab"
+printf '[zram0]\nzram-size = ram / 2\ncompression-algorithm = zstd\n' > "$TARGET/etc/systemd/zram-generator.conf"
+
+# initramfs (systemd-based, Plymouth splash, unlock prompt when encrypted)
+enc_hook=""; [[ $ENCRYPT == yes ]] && enc_hook=sd-encrypt
+cat > "$TARGET/etc/mkinitcpio.conf.d/halcyon.conf" <<EOF
+HOOKS=(base systemd plymouth autodetect microcode modconf kms keyboard sd-vconsole block $enc_hook filesystems fsck)
+EOF
+ch mkinitcpio -k /boot/vmlinuz-linux -g /boot/initramfs-linux.img
+ok "Boot image"
+
+# ------------------------------------------------------------ bootloader ---
+ROOT_UUID=$(blkid -s UUID -o value "$ROOTDEV")
+cmdline="root=UUID=$ROOT_UUID rootflags=subvol=@ rw quiet splash"
+if [[ $ENCRYPT == yes ]]; then
+    cmdline="rd.luks.name=$(blkid -s UUID -o value "$ROOTP")=halcyon-root root=/dev/mapper/halcyon-root rootflags=subvol=@ rw quiet splash"
+fi
+cat > "$TARGET/boot/limine.conf" <<EOF
+timeout: 3
+interface_branding: Halcyon Linux
+interface_branding_colour: 1e9be0
+
+/Halcyon Linux
+    protocol: linux
+    path: boot():/vmlinuz-linux
+    cmdline: $cmdline
+    module_path: boot():/initramfs-linux.img
+EOF
+mkdir -p "$TARGET/boot/EFI/BOOT" "$TARGET/boot/EFI/limine"
+cp /usr/share/limine/BOOTX64.EFI "$TARGET/boot/EFI/BOOT/BOOTX64.EFI"
+cp /usr/share/limine/BOOTX64.EFI "$TARGET/boot/EFI/limine/BOOTX64.EFI"
+cp /usr/share/limine/limine-bios.sys "$TARGET/boot/"
+# Refer to the disk by a stable id: /dev/sdX names can change between boots.
+DISK_ID=$(find /dev/disk/by-id -lname "*/${DISK##*/}" 2>/dev/null | grep -vE -- '-part[0-9]+$' | sort | head -1)
+DISK_ID=${DISK_ID:-$DISK}
+run limine bios-install "$DISK" 1
+if (( UEFI )); then
+    efibootmgr -q --create --disk "$DISK" --part 2 --label "Halcyon Linux" \
+        --loader '\EFI\limine\BOOTX64.EFI' >>"$LOG" 2>&1 || true   # fallback path still boots
+fi
+# Keep Limine's boot files current when the limine package updates.
+mkdir -p "$TARGET/etc/pacman.d/hooks"
+cat > "$TARGET/etc/pacman.d/hooks/90-halcyon-limine.hook" <<EOF
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = limine
+
+[Action]
+Description = Updating Limine boot files...
+When = PostTransaction
+Exec = /bin/sh -c 'cp /usr/share/limine/BOOTX64.EFI /boot/EFI/BOOT/ && cp /usr/share/limine/BOOTX64.EFI /boot/EFI/limine/ && cp /usr/share/limine/limine-bios.sys /boot/ && limine bios-install $DISK_ID 1'
+EOF
+ok "Bootloader (Limine, $( ((UEFI)) && echo UEFI+BIOS || echo BIOS))"
+
+# ---------------------------------------------------------------- finish ---
+sync
+umount -R "$TARGET"
+[[ $ENCRYPT == yes ]] && cryptsetup close halcyon-root
+secs=$(( $(date +%s) - START ))
+printf '\n%s%s  Halcyon is installed%s %s(%dm %02ds)%s\n\n' "$g" "$b" "$r" "$d" $((secs/60)) $((secs%60)) "$r"
+read -rp "  Restart now? [Y/n] " a
+[[ ${a,,} == n* ]] || systemctl reboot

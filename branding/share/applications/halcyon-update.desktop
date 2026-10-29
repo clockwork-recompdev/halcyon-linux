@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Update Halcyon
+Comment=Update the system, Halcyon, AUR packages and Flatpak apps
+Exec=halcyon-update
+Icon=system-software-update
+Categories=System;Settings;
+Keywords=update;upgrade;pacman;

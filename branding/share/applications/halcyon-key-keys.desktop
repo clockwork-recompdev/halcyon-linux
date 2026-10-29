@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Show keybindings
+Exec=halcyon-keys
+Icon=halcyon-logo
+NoDisplay=true
+X-KDE-Shortcuts=Meta+K

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Display settings
+Exec=kcmshell6 kcm_kscreen
+Icon=halcyon-logo
+NoDisplay=true
+X-KDE-Shortcuts=Meta+Ctrl+D

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Grok
+Exec=firefox --new-window https://grok.com
+Icon=halcyon-logo
+NoDisplay=true
+X-KDE-Shortcuts=Meta+Shift+Alt+A

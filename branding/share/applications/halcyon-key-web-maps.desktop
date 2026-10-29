@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Google Maps
+Exec=firefox --new-window https://maps.google.com/
+Icon=halcyon-logo
+NoDisplay=true
+X-KDE-Shortcuts=Meta+Shift+S

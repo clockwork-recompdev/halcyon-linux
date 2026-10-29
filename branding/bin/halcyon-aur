@@ -1,0 +1,288 @@
+#!/usr/bin/env bash
+# halcyon-aur: search, review and install AUR packages from the terminal.
+#
+#   halcyon-aur [search words]   live search (Enter installs, Tab multi-selects)
+#   halcyon-aur install PKG...   install packages (and their AUR dependencies)
+#   halcyon-aur -u               update installed AUR packages
+#   halcyon-aur -r               remove installed AUR packages
+#   halcyon-aur -n install PKG   dry run: show what would be built
+#   halcyon-aur --yes install PKG  no questions (used by Gaming Setup for
+#                                  hand-picked packages from their own authors)
+#
+# AUR packages are written by users, not by Arch. Every build script
+# (PKGBUILD) is shown to you before it runs.
+set -uo pipefail
+
+RPC=https://aur.archlinux.org/rpc/v5
+CACHE=${XDG_CACHE_HOME:-$HOME/.cache}/halcyon-aur
+SELF=$(readlink -f -- "$0")
+mkdir -p "$CACHE"
+
+c=$'\e[38;2;30;155;224m' g=$'\e[38;2;108;192;74m' y=$'\e[38;2;240;180;48m'
+red=$'\e[38;2;232;84;56m' d=$'\e[2m' b=$'\e[1m' r=$'\e[0m'
+say()  { printf '%s==>%s %s%s%s\n' "$c" "$r" "$b" "$*" "$r"; }
+warn() { printf '%s==> %s%s\n' "$y" "$*" "$r" >&2; }
+die()  { printf '%s==> %s%s\n' "$red" "$*" "$r" >&2; exit 1; }
+YES=0
+ask()  {  # ask PROMPT DEFAULT(y|n): true for yes
+    local a
+    if (( YES )); then a=$2; else read -rp "$1 " a; a=${a:-$2}; fi
+    [[ ${a,,} == y* ]]
+}
+
+[[ $EUID -ne 0 ]] || die "Run halcyon-aur as your normal user; it asks for your password when needed."
+
+rpc() { curl -fsSL --max-time 20 "$RPC/$1"; }
+uri() { jq -rn --arg s "$1" '$s | @uri'; }
+
+info_json() {  # info_json NAME...: RPC info results (cached for this run)
+    local q="" n
+    for n in "$@"; do q+="&arg[]=$(uri "$n")"; done
+    rpc "info?${q#&}"
+}
+
+installed_map() { pacman -Q | jq -Rn '[inputs | split(" ") | {(.[0]): .[1]}] | add // {}'; }
+
+# ------------------------------------------------------------- fzf helpers ---
+_search() {  # one tab-separated line per result: name \t pretty text
+    local q=${1:-}
+    if (( ${#q} < 2 )); then printf '\t%sType at least 2 letters to search the AUR…%s\n' "$d" "$r"; return; fi
+    rpc "search/$(uri "$q")?by=name-desc" 2>/dev/null |
+    jq -r --argjson inst "$(installed_map)" --arg c "$c" --arg g "$g" --arg y "$y" --arg red "$red" --arg d "$d" --arg r "$r" '
+        .results | sort_by(-.Popularity) | .[:250][] |
+        [ .Name,
+          ($c + (.Name | .[0:30]) + $r + (" " * ([31 - (.Name|length), 1] | max))
+           + $d + (.Version | .[0:16]) + $r + (" " * ([17 - (.Version|length), 1] | max))
+           + $y + "★" + (.NumVotes|tostring) + $r + " "
+           + (if $inst[.Name] then $g + "[installed] " + $r else "" end)
+           + (if .OutOfDate then $red + "[out of date] " + $r else "" end)
+           + (.Description // "" | .[0:90]))
+        ] | @tsv' 2>/dev/null || printf '\t%sCould not reach the AUR. Check your internet connection.%s\n' "$red" "$r"
+}
+
+_preview() {
+    local name=$1
+    [[ -n $name ]] || return
+    info_json "$name" | jq -r --arg c "$c" --arg g "$g" --arg y "$y" --arg red "$red" --arg d "$d" --arg b "$b" --arg r "$r" '
+        .results[0] // empty |
+        def list(f): (f // []) | if length == 0 then $d + "none" + $r else join("  ") end;
+        $b + $c + .Name + $r + " " + .Version + "\n"
+        + (.Description // "") + "\n\n"
+        + $d + "Votes       " + $r + (.NumVotes|tostring) + "   " + $d + "Popularity " + $r + ((.Popularity*100|round)/100|tostring) + "\n"
+        + $d + "Maintainer  " + $r + (.Maintainer // ($red + "none (orphaned)" + $r)) + "\n"
+        + $d + "Updated     " + $r + (.LastModified | strftime("%Y-%m-%d")) + "\n"
+        + (if .OutOfDate then $red + "Flagged out of date " + (.OutOfDate | strftime("%Y-%m-%d")) + $r + "\n" else "" end)
+        + $d + "Website     " + $r + (.URL // "") + "\n"
+        + $d + "License     " + $r + list(.License) + "\n\n"
+        + $b + "Depends" + $r + "\n" + list(.Depends) + "\n\n"
+        + $b + "Build depends" + $r + "\n" + list((.MakeDepends // []) + (.CheckDepends // [])) + "\n\n"
+        + $b + "Optional" + $r + "\n" + list(.OptDepends) + "\n\n"
+        + $d + "https://aur.archlinux.org/packages/" + .Name + $r'
+}
+
+# ------------------------------------------------------------ resolution ---
+declare -A SEEN=() ASDEP=() BASE=()
+ORDER=()
+
+# HALCYON_AUR_PACMAN_OPTS lets tests point repo lookups at another sync db.
+read -ra PACMAN_OPTS <<<"${HALCYON_AUR_PACMAN_OPTS:-}"
+
+repo_has() {  # repo_has DEP: satisfiable from the official repos (incl. provides)
+    pacman "${PACMAN_OPTS[@]}" -Sp --print-format %n -- "$1" >/dev/null 2>&1
+}
+
+aur_provider() {  # aur_provider NAME: AUR package named NAME, or one that provides it
+    local n=$1 hit
+    hit=$(info_json "$n" | jq -r '.results[0].Name // empty')
+    [[ -n $hit ]] && { echo "$hit"; return; }
+    rpc "search/$(uri "$n")?by=provides" | jq -r '.results | sort_by(-.Popularity) | .[0].Name // empty'
+}
+
+resolve() {  # resolve NAME ASDEP(0/1): queue NAME after its AUR dependencies
+    local name=$1 asdep=$2 json dep dn prov
+    [[ -n ${SEEN[$name]:-} ]] && return
+    SEEN[$name]=1
+    json=$(info_json "$name")
+    [[ $(jq -r '.resultcount' <<<"$json") -ge 1 ]] || die "$name isn't in the AUR."
+    BASE[$name]=$(jq -r '.results[0].PackageBase' <<<"$json")
+    while IFS= read -r dep; do
+        [[ -n $dep ]] || continue
+        dn=${dep%%[<>=]*}
+        pacman -T -- "$dep" >/dev/null 2>&1 && continue   # already installed
+        repo_has "$dep" && continue                        # makepkg -s installs it
+        prov=$(aur_provider "$dn")
+        [[ -n $prov ]] || die "$name needs $dep, which isn't in the repos or the AUR."
+        resolve "$prov" 1
+    done < <(jq -r '.results[0] | (.Depends // []) + (.MakeDepends // []) + (.CheckDepends // []) | .[]' <<<"$json")
+    ORDER+=("$name")
+    (( asdep )) && ASDEP[$name]=1
+}
+
+# ---------------------------------------------------------------- review ---
+review() {  # review BASE: show the build files (or what changed since last time)
+    (( YES )) && return 0
+    local dir=$CACHE/$1 last pager=(less -R)
+    command -v bat >/dev/null && pager=(bat --paging=always --style=header,grid --language=bash)
+    last=$(cat "$dir/.halcyon-reviewed" 2>/dev/null)
+    while :; do
+        if [[ -n $last ]] && git -C "$dir" cat-file -e "$last" 2>/dev/null && [[ $last != $(git -C "$dir" rev-parse HEAD) ]]; then
+            printf '\n%s%s changed since you last built it.%s\n' "$y" "$1" "$r"
+            echo "  [d] show the changes   [f] show all build files   [b] build   [s] skip   [q] quit"
+        else
+            printf '\n%sReview %s before building.%s AUR packages are made by users; check what it downloads and runs.\n' "$b" "$1" "$r"
+            echo "  [f] show build files   [b] build   [s] skip   [q] quit"
+        fi
+        local a; read -rp "Choice [f]: " a
+        case ${a:-f} in
+            d|D) git -C "$dir" -c color.ui=always diff "$last" HEAD | less -R ;;
+            f|F) (cd "$dir" && "${pager[@]}" PKGBUILD $(git ls-files | grep -vE '^(PKGBUILD|\.SRCINFO|\.gitignore)$' | grep -vE '\.(png|jpg|svg|ico|patch\.sig|gpg)$')) ;;
+            b|B) return 0 ;;
+            s|S) return 1 ;;
+            q|Q) exit 0 ;;
+        esac
+    done
+}
+
+fetch() {  # fetch BASE: clone or update the AUR git repo
+    local dir=$CACHE/$1
+    if [[ -d $dir/.git ]]; then
+        git -C "$dir" fetch -q origin && git -C "$dir" reset -q --hard origin/HEAD
+    else
+        git clone -q "https://aur.archlinux.org/$1.git" "$dir"
+    fi
+}
+
+pkgfile_name() {  # foo-bar-1.2-3-x86_64.pkg.tar.zst -> foo-bar
+    basename "$1" | sed -E 's/-[^-]+-[^-]+-[^-]+\.pkg\.tar(\.[a-z0-9]+)?$//'
+}
+
+build_install() {  # build_install BASE NAMES...: makepkg, then install just NAMES
+    local base=$1; shift
+    local dir=$CACHE/$base f n explicit=() deps=()
+    (cd "$dir" && makepkg -s --noconfirm --needed -f) || { warn "Building $base failed."; return 1; }
+    while IFS= read -r f; do
+        [[ -f $f ]] || continue
+        for n in "$@"; do
+            [[ $(pkgfile_name "$f") == "$n" ]] || continue
+            if [[ -n ${ASDEP[$n]:-} ]]; then deps+=("$f"); else explicit+=("$f"); fi
+        done
+    done < <(cd "$dir" && makepkg --packagelist)
+    (( ${#explicit[@]} + ${#deps[@]} )) || { warn "makepkg built nothing for $base."; return 1; }
+    # Dependencies are marked as such so "pacman -Rns" can clean them up later.
+    if (( ${#deps[@]} )); then sudo pacman -U --needed --noconfirm --asdeps -- "${deps[@]}" || return 1; fi
+    if (( ${#explicit[@]} )); then sudo pacman -U --needed --noconfirm -- "${explicit[@]}" || return 1; fi
+    git -C "$dir" rev-parse HEAD > "$dir/.halcyon-reviewed"
+}
+
+install_pkgs() {
+    local dry=$1; shift
+    (( $# )) || return 0
+    command -v makepkg >/dev/null || die "Building needs base-devel: sudo pacman -S --needed base-devel git"
+    say "Resolving dependencies…"
+    local n
+    for n in "$@"; do resolve "$n" 0; done
+
+    echo
+    say "To build from the AUR, in this order:"
+    for n in "${ORDER[@]}"; do
+        printf '   %s%s%s%s\n' "$c" "$n" "$r" "${ASDEP[$n]:+ ${d}(needed by another package)$r}"
+    done
+    (( dry )) && return 0
+    echo
+    ask "Continue? [Y/n]" y || exit 0
+
+    # Group by package base so split packages build once.
+    local -A done_base=()
+    local base names
+    for n in "${ORDER[@]}"; do
+        base=${BASE[$n]}
+        [[ -n ${done_base[$base]:-} ]] && continue
+        done_base[$base]=1
+        names=()
+        for m in "${ORDER[@]}"; do [[ ${BASE[$m]} == "$base" ]] && names+=("$m"); done
+        echo; say "$base"
+        fetch "$base" || { warn "Couldn't download $base."; continue; }
+        review "$base" || { warn "Skipped $base."; continue; }
+        build_install "$base" "${names[@]}" || ask "Keep going with the rest? [y/N]" n || exit 1
+    done
+    echo; say "${g}Done.$r"
+}
+
+# --------------------------------------------------------------- updates ---
+updates() {
+    say "Checking installed AUR packages for updates…"
+    mapfile -t foreign < <(pacman -Qmq)
+    (( ${#foreign[@]} )) || { echo "No AUR packages are installed."; return; }
+    local json lines=() n v new missing=()
+    json=$(info_json "${foreign[@]}")
+    while read -r n v; do
+        new=$(jq -r --arg n "$n" '.results[] | select(.Name == $n) | .Version' <<<"$json")
+        if [[ -z $new ]]; then missing+=("$n"); continue; fi
+        (( $(vercmp "$new" "$v") > 0 )) && lines+=("$n"$'\t'"$c$n$r  $d$v$r → $g$new$r")
+    done < <(pacman -Qm)
+    (( ${#missing[@]} )) && warn "Not in the AUR (removed or renamed): ${missing[*]}"
+    (( ${#lines[@]} )) || { echo "Everything is up to date."; return; }
+    local pick
+    if (( YES )); then
+        mapfile -t pick < <(printf '%s\n' "${lines[@]}" | cut -f1)
+        install_pkgs 0 "${pick[@]}"
+        return
+    fi
+    pick=$(printf '%s\n' "${lines[@]}" | fzf --ansi --multi --delimiter '\t' --with-nth 2 \
+        --bind 'start:select-all' --header 'Updates available — Tab toggles, Enter updates' \
+        --prompt 'Update › ' --border rounded --border-label ' Halcyon AUR ' $THEME | cut -f1)
+    [[ -n $pick ]] || return
+    mapfile -t pick <<<"$pick"
+    install_pkgs 0 "${pick[@]}"
+}
+
+remove() {
+    local pick
+    pick=$(pacman -Qm | awk -v c="$c" -v r="$r" '{printf "%s\t%s%s%s %s\n", $1, c, $1, r, $2}' |
+        fzf --ansi --multi --delimiter '\t' --with-nth 2 --prompt 'Remove › ' \
+            --header 'Tab selects, Enter removes' --border rounded --border-label ' Halcyon AUR ' $THEME | cut -f1)
+    [[ -n $pick ]] || return
+    mapfile -t pick <<<"$pick"
+    sudo pacman -Rns -- "${pick[@]}"
+}
+
+THEME="--color=border:#1e9be0,label:#7fe0ff,prompt:#1e9be0,pointer:#6cc04a,marker:#6cc04a,hl:#7fe0ff,hl+:#7fe0ff,header:#8aa6b8,info:#8aa6b8,spinner:#6cc04a"
+
+# ------------------------------------------------------------------ main ---
+dry=0
+while [[ ${1:-} == -* && ${1:-} != -u && ${1:-} != -r && ${1:-} != -h ]]; do
+    case $1 in
+        -n|--dry-run) dry=1 ;;
+        -y|--yes) YES=1 ;;
+        *) break ;;
+    esac
+    shift
+done
+case ${1:-} in
+    _search)  _search "${2:-}"; exit ;;
+    _preview) _preview "${2:-}"; exit ;;
+    install)  shift; install_pkgs "$dry" "$@"; exit ;;
+    -u|--update|update) updates; exit ;;
+    --count)   # number of AUR packages with updates (for halcyon-update --check)
+        mapfile -t foreign < <(pacman -Qmq); (( ${#foreign[@]} )) || { echo 0; exit; }
+        json=$(info_json "${foreign[@]}"); n=0
+        while read -r name ver; do
+            new=$(jq -r --arg n "$name" '.results[] | select(.Name == $n) | .Version' <<<"$json")
+            [[ -n $new ]] && (( $(vercmp "$new" "$ver") > 0 )) && n=$((n + 1))
+        done < <(pacman -Qm)
+        echo "$n"; exit ;;
+    -r|--remove|remove) remove; exit ;;
+    -h|--help) sed -n '2,11p' "$SELF" | sed 's/^# \{0,1\}//'; exit ;;
+esac
+
+pick=$(: | fzf --disabled --ansi --multi --query "$*" \
+    --delimiter '\t' --with-nth 2 --prompt 'AUR › ' \
+    --bind "start:reload:$SELF _search {q}" \
+    --bind "change:reload:sleep 0.3; $SELF _search {q}" \
+    --bind "ctrl-u:become($SELF -u)" --bind "ctrl-r:become($SELF -r)" \
+    --preview "$SELF _preview {1}" --preview-window 'right,48%,wrap,border-left' \
+    --header $'Enter install · Tab select several · Ctrl-U updates · Ctrl-R remove · Esc quit' \
+    --border rounded --border-label ' Halcyon AUR ' $THEME | cut -f1)
+[[ -n $pick ]] || exit 0
+mapfile -t pick <<<"$pick"
+install_pkgs 0 "${pick[@]}"

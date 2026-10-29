@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# Halcyon screensavers: the built-in "Bubbles" scene, or classic Windows
+# screensavers (.scr, e.g. from Microsoft Plus!) run through Wine.
+#
+#   halcyon-screensaver              start the chosen screensaver now
+#   halcyon-screensaver --settings   choose a screensaver and the idle time
+#   halcyon-screensaver --daemon     idle watcher (started at login)
+#   halcyon-screensaver --run SAVER  run a specific saver ("bubbles" or a .scr path)
+set -uo pipefail
+
+PREFIX=${HALCYON_WINEPREFIX:-${XDG_DATA_HOME:-$HOME/.local/share}/halcyon/windows}
+EXTRA=${XDG_DATA_HOME:-$HOME/.local/share}/halcyon/screensavers
+SHARE=/usr/share/halcyon/screensaver
+cfg() { kreadconfig6 --file halcyonrc --group Screensaver --key "$1" --default "$2"; }
+
+running() { pgrep -f "halcyon-screensaver-window|$SHARE/screensaver.qml|\.scr\b.*/s" >/dev/null; }
+
+run_saver() {
+    local saver=$1
+    running && return 0
+    if [[ $saver == bubbles || ! -f $saver ]]; then
+        exec -a halcyon-screensaver-window /usr/lib/qt6/bin/qml "$SHARE/screensaver.qml"
+    fi
+    # Windows screensaver: "/s" runs it fullscreen; it exits on mouse/keys itself.
+    command -v wine >/dev/null || exec "$0" --run bubbles
+    WINEPREFIX=$PREFIX WINEDEBUG=-all exec wine "$saver" /s
+}
+
+list_savers() {  # "path<TAB>name" for every .scr we can find
+    printf 'bubbles\tBubbles (Halcyon)\n'
+    { [[ -d $PREFIX/drive_c ]] && find "$PREFIX/drive_c" -iname '*.scr' -size +1k 2>/dev/null
+      [[ -d $EXTRA ]] && find "$EXTRA" -iname '*.scr' 2>/dev/null; } |
+    while IFS= read -r f; do
+        n=$(basename "$f"); printf '%s\t%s\n' "$f" "${n%.*}"
+    done | sort -t$'\t' -k2 -f | awk -F'\t' '!seen[tolower($2)]++'
+}
+
+case ${1:-} in
+    --run) run_saver "${2:-bubbles}" ;;
+    --daemon)
+        # swayidle uses Wayland's idle protocol, which KWin supports and which
+        # respects "don't sleep" requests from video players.
+        [[ $(cfg Enabled true) == true ]] || exit 0
+        mins=$(cfg Timeout 3)
+        exec swayidle -w timeout $(( mins * 60 )) "$0 --run '$(cfg Saver bubbles)'"
+        ;;
+    --settings)
+        export HALCYON_SS_LIST HALCYON_SS_CURRENT HALCYON_SS_TIMEOUT HALCYON_SS_ENABLED HALCYON_SS_PREFIX
+        HALCYON_SS_LIST=$(list_savers)
+        HALCYON_SS_CURRENT=$(cfg Saver bubbles)
+        HALCYON_SS_TIMEOUT=$(cfg Timeout 3)
+        HALCYON_SS_ENABLED=$(cfg Enabled true)
+        HALCYON_SS_PREFIX=$PREFIX
+        QML_XHR_ALLOW_FILE_READ=1 exec /usr/lib/qt6/bin/qml "$SHARE/settings.qml"
+        ;;
+    --restart-daemon)
+        pkill -f "swayidle .*halcyon-screensaver" 2>/dev/null
+        setsid -f "$0" --daemon >/dev/null 2>&1
+        ;;
+    --add)
+        # Copy a .scr (and the files next to it) into ~/.local/share/halcyon/screensavers.
+        src=$(kdialog --getopenfilename "$HOME" "*.scr *.SCR|Windows screensavers") || exit 0
+        dest=$EXTRA/$(basename "${src%.*}")
+        mkdir -p "$dest" && cp -r "$(dirname "$src")"/. "$dest"/
+        kdialog --passivepopup "Added $(basename "$src")" 3
+        ;;
+    "") run_saver "$(cfg Saver bubbles)" ;;
+    *) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+esac

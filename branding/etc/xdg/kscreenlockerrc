@@ -1,0 +1,9 @@
+[Daemon]
+# Lock 10 minutes after the screensaver (3 min) kicks in.
+Timeout=13
+
+[Greeter]
+WallpaperPlugin=org.kde.image
+
+[Greeter][Wallpaper][org.kde.image][General]
+Image=file:///usr/share/wallpapers/Halcyon/

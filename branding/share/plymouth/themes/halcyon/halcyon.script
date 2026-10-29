@@ -1,0 +1,64 @@
+# Halcyon Aero boot splash: plain sky gradient, logo, five pulsing aqua orbs.
+
+Window.SetBackgroundTopColor(0.04, 0.37, 0.66);
+Window.SetBackgroundBottomColor(0.55, 0.85, 0.97);
+
+sw = Window.GetWidth();
+sh = Window.GetHeight();
+
+logo_image = Image("logo.png");
+size = Math.Min(sw, sh) * 0.22;
+logo_image = logo_image.Scale(size, size);
+logo = Sprite(logo_image);
+logo.SetX(sw / 2 - size / 2);
+logo.SetY(sh / 2 - size / 2 - size * 0.15);
+
+orb_image = Image("orb.png");
+for (i = 0; i < 5; i++) {
+    orbs[i] = Sprite(orb_image);
+    orbs[i].SetX(sw / 2 - 2.5 * 32 + i * 32 + 7);
+    orbs[i].SetY(logo.GetY() + size * 1.25);
+    orbs[i].SetOpacity(0.25);
+}
+
+t = 0;
+fun refresh_callback() {
+    t++;
+    for (i = 0; i < 5; i++) {
+        phase = Math.Sin((t / 12) - i * 0.9);
+        orbs[i].SetOpacity(0.35 + 0.65 * Math.Max(phase, 0));
+    }
+}
+Plymouth.SetRefreshFunction(refresh_callback);
+
+# ---- password prompt (encrypted disks) ----
+prompt = NULL;
+bullets = NULL;
+fun display_password_callback(text, count) {
+    prompt_image = Image.Text(text, 1, 1, 1);
+    prompt = Sprite(prompt_image);
+    prompt.SetX(sw / 2 - prompt_image.GetWidth() / 2);
+    prompt.SetY(logo.GetY() + size * 1.55);
+    s = "";
+    for (i = 0; i < count; i++) s += "● ";
+    bullet_image = Image.Text(s, 1, 1, 1);
+    bullets = Sprite(bullet_image);
+    bullets.SetX(sw / 2 - bullet_image.GetWidth() / 2);
+    bullets.SetY(prompt.GetY() + prompt_image.GetHeight() + 10);
+}
+fun display_normal_callback() {
+    prompt = NULL;
+    bullets = NULL;
+}
+Plymouth.SetDisplayPasswordFunction(display_password_callback);
+Plymouth.SetDisplayNormalFunction(display_normal_callback);
+
+# ---- status messages ----
+message = NULL;
+fun message_callback(text) {
+    img = Image.Text(text, 1, 1, 1);
+    message = Sprite(img);
+    message.SetX(sw / 2 - img.GetWidth() / 2);
+    message.SetY(sh - img.GetHeight() - 24);
+}
+Plymouth.SetMessageFunction(message_callback);

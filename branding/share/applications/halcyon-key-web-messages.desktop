@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Google Messages
+Exec=firefox --new-window https://messages.google.com/web/conversations
+Icon=halcyon-logo
+NoDisplay=true
+X-KDE-Shortcuts=Meta+Shift+Ctrl+G

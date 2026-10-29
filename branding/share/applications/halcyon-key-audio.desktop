@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Audio settings
+Exec=kcmshell6 kcm_pulseaudio
+Icon=halcyon-logo
+NoDisplay=true
+X-KDE-Shortcuts=Meta+Ctrl+A

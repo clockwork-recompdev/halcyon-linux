@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Keyboard Shortcuts
+Comment=Halcyon keybinding cheat sheet (Super+K)
+Exec=halcyon-keys
+Icon=preferences-desktop-keyboard-shortcut
+Categories=Utility;

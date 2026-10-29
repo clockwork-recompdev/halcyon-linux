@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Pick a Windows desktop theme (e.g. from Microsoft Plus! XP) installed in
+# Halcyon's Windows environment and apply it to Plasma.
+set -uo pipefail
+PY="python3 /usr/share/halcyon/wintheme.py"
+title="Windows Desktop Themes"
+
+mapfile -t themes < <($PY list)
+items=(restore "Restore the Halcyon look" off)
+for t in "${themes[@]}"; do
+    items+=("$t" "$(basename "${t%.*}")  —  $(basename "$(dirname "$t")")" off)
+done
+if (( ${#themes[@]} == 0 )); then
+    kdialog --title "$title" --msgbox "No Windows themes found yet.\n\nInstall Microsoft Plus! (or another theme pack) from its disc, then come back here." 
+    exit 0
+fi
+pick=$(kdialog --title "$title" --geometry 560x420 --radiolist "Choose a theme to apply:" "${items[@]}") || exit 0
+
+if [[ $pick == restore ]]; then
+    QT_QPA_PLATFORM=offscreen $PY restore
+    plasma-apply-wallpaperimage /usr/share/wallpapers/Halcyon >/dev/null 2>&1
+    plasma-apply-cursortheme Oxygen_Blue >/dev/null 2>&1
+    for ev in messageInformation messageWarning messageCritical messageQuestion notification beep; do
+        kwriteconfig6 --file plasma_workspace.notifyrc --group "Event/$ev" --key Sound --delete
+    done
+    kdialog --title "$title" --passivepopup "Halcyon look restored." 4
+    exit 0
+fi
+
+parts=$(kdialog --title "$title" --checklist "Apply which parts?" \
+    wallpaper "Wallpaper" on cursors "Mouse pointers (animated ones stay animated)" on \
+    sounds "System sounds" on colors "Retint Halcyon to match (taskbar, menus, windows)" on) || exit 0
+flags=()
+[[ $parts == *wallpaper* ]] || flags+=(--no-wallpaper)
+[[ $parts == *cursors* ]] || flags+=(--no-cursors)
+[[ $parts == *sounds* ]] || flags+=(--no-sounds)
+[[ $parts == *colors* ]] || flags+=(--no-colors)
+if out=$(QT_QPA_PLATFORM=offscreen $PY apply "$pick" "${flags[@]}" 2>&1); then
+    kdialog --title "$title" --passivepopup "Applied $(basename "${pick%.*}")." 4
+else
+    kdialog --title "$title" --error "Couldn't apply the theme:\n\n${out: -400}"
+fi

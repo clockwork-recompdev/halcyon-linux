@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="124" height="66">
+<defs><linearGradient id="baseg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fdcff" stop-opacity="0.3"/><stop offset="0.08" stop-color="#123a5c" stop-opacity="0.8"/><stop offset="0.1" stop-color="#0a2236" stop-opacity="0.86"/><stop offset="1" stop-color="#0d2c46" stop-opacity="0.9"/></linearGradient>
+</defs>
+<g id="topleft"><g transform="translate(0,0) scale(1,1)"><rect width="8" height="8" fill="none"/><path d="M8,0 H6 A6,6 0 0 0 0,6 V8 H8 Z M8,1 H6 A5,5 0 0 0 1,6 V8 H8 Z" fill-rule="evenodd" fill="#000a14" fill-opacity="0.85"/><path d="M8,1 H6 A5,5 0 0 0 1,6 V8 H8 Z M8,2 H6 A4,4 0 0 0 2,6 V8 H8 Z" fill-rule="evenodd" fill="#ffffff" fill-opacity="0.28"/><path d="M8,2 H6 A4,4 0 0 0 2,6 V8 H8 Z" fill="#9fdcff" fill-opacity="0.3"/></g></g>
+<g id="top"><rect x="8" y="0" width="40" height="1" fill="#000a14" fill-opacity="0.85"/><rect x="8" y="1" width="40" height="1" fill="#ffffff" fill-opacity="0.28"/><rect x="8" y="2" width="40" height="6" fill="#9fdcff" fill-opacity="0.3"/></g>
+<g id="topright"><g transform="translate(56,0) scale(-1,1)"><rect width="8" height="8" fill="none"/><path d="M8,0 H6 A6,6 0 0 0 0,6 V8 H8 Z M8,1 H6 A5,5 0 0 0 1,6 V8 H8 Z" fill-rule="evenodd" fill="#000a14" fill-opacity="0.85"/><path d="M8,1 H6 A5,5 0 0 0 1,6 V8 H8 Z M8,2 H6 A4,4 0 0 0 2,6 V8 H8 Z" fill-rule="evenodd" fill="#ffffff" fill-opacity="0.28"/><path d="M8,2 H6 A4,4 0 0 0 2,6 V8 H8 Z" fill="#9fdcff" fill-opacity="0.3"/></g></g>
+<g id="left"><rect x="0" y="8" width="1" height="40" fill="#000a14" fill-opacity="0.85"/><rect x="1" y="8" width="1" height="40" fill="#ffffff" fill-opacity="0.28"/><rect x="2" y="8" width="6" height="40" fill="url(#baseg)"/></g>
+<g id="center"><rect x="8" y="8" width="40" height="40" fill="url(#baseg)"/></g>
+<g id="right"><rect x="48" y="8" width="6" height="40" fill="url(#baseg)"/><rect x="54" y="8" width="1" height="40" fill="#ffffff" fill-opacity="0.28"/><rect x="55" y="8" width="1" height="40" fill="#000a14" fill-opacity="0.85"/></g>
+<g id="bottomleft"><g transform="translate(0,56) scale(1,-1)"><rect width="8" height="8" fill="none"/><path d="M8,0 H6 A6,6 0 0 0 0,6 V8 H8 Z M8,1 H6 A5,5 0 0 0 1,6 V8 H8 Z" fill-rule="evenodd" fill="#000a14" fill-opacity="0.85"/><path d="M8,1 H6 A5,5 0 0 0 1,6 V8 H8 Z M8,2 H6 A4,4 0 0 0 2,6 V8 H8 Z" fill-rule="evenodd" fill="#ffffff" fill-opacity="0.14"/><path d="M8,2 H6 A4,4 0 0 0 2,6 V8 H8 Z" fill="#0d2c46" fill-opacity="0.9"/></g></g>
+<g id="bottom"><rect x="8" y="48" width="40" height="6" fill="#0d2c46" fill-opacity="0.9"/><rect x="8" y="54" width="40" height="1" fill="#ffffff" fill-opacity="0.14"/><rect x="8" y="55" width="40" height="1" fill="#000a14" fill-opacity="0.85"/></g>
+<g id="bottomright"><g transform="translate(56,56) scale(-1,-1)"><rect width="8" height="8" fill="none"/><path d="M8,0 H6 A6,6 0 0 0 0,6 V8 H8 Z M8,1 H6 A5,5 0 0 0 1,6 V8 H8 Z" fill-rule="evenodd" fill="#000a14" fill-opacity="0.85"/><path d="M8,1 H6 A5,5 0 0 0 1,6 V8 H8 Z M8,2 H6 A4,4 0 0 0 2,6 V8 H8 Z" fill-rule="evenodd" fill="#ffffff" fill-opacity="0.14"/><path d="M8,2 H6 A4,4 0 0 0 2,6 V8 H8 Z" fill="#0d2c46" fill-opacity="0.9"/></g></g>
+<defs><radialGradient id="shadow-sr"><stop offset="0" stop-color="#00203a" stop-opacity="0.35"/><stop offset="1" stop-color="#00203a" stop-opacity="0"/></radialGradient><linearGradient id="shadow-sv" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#00203a" stop-opacity="0.35"/><stop offset="1" stop-color="#00203a" stop-opacity="0"/></linearGradient><linearGradient id="shadow-svb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#00203a" stop-opacity="0.35"/><stop offset="1" stop-color="#00203a" stop-opacity="0"/></linearGradient><linearGradient id="shadow-sh" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#00203a" stop-opacity="0.35"/><stop offset="1" stop-color="#00203a" stop-opacity="0"/></linearGradient><linearGradient id="shadow-shr" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#00203a" stop-opacity="0.35"/><stop offset="1" stop-color="#00203a" stop-opacity="0"/></linearGradient></defs>
+<g id="shadow-topleft"><rect x="66" y="0" width="14" height="14" fill="none"/><circle cx="80" cy="14" r="14" fill="url(#shadow-sr)" clip-path="url(#shadow-cliptopleft)"/></g>
+<clipPath id="shadow-cliptopleft"><rect x="66" y="0" width="14" height="14"/></clipPath>
+<rect id="shadow-top" x="80" y="0" width="20" height="14" fill="url(#shadow-sv)"/>
+<g id="shadow-topright"><rect x="100" y="0" width="14" height="14" fill="none"/><circle cx="100" cy="14" r="14" fill="url(#shadow-sr)" clip-path="url(#shadow-cliptopright)"/></g>
+<clipPath id="shadow-cliptopright"><rect x="100" y="0" width="14" height="14"/></clipPath>
+<rect id="shadow-left" x="66" y="14" width="14" height="20" fill="url(#shadow-sh)"/>
+<rect id="shadow-right" x="100" y="14" width="14" height="20" fill="url(#shadow-shr)"/>
+<g id="shadow-bottomleft"><rect x="66" y="34" width="14" height="14" fill="none"/><circle cx="80" cy="34" r="14" fill="url(#shadow-sr)" clip-path="url(#shadow-clipbottomleft)"/></g>
+<clipPath id="shadow-clipbottomleft"><rect x="66" y="34" width="14" height="14"/></clipPath>
+<rect id="shadow-bottom" x="80" y="34" width="20" height="14" fill="url(#shadow-svb)"/>
+<g id="shadow-bottomright"><rect x="100" y="34" width="14" height="14" fill="none"/><circle cx="100" cy="34" r="14" fill="url(#shadow-sr)" clip-path="url(#shadow-clipbottomright)"/></g>
+<clipPath id="shadow-clipbottomright"><rect x="100" y="34" width="14" height="14"/></clipPath>
+<rect id="hint-stretch-borders" width="1" height="1" fill="none"/>
+<rect id="hint-top-margin" x="0" y="0" width="6" height="6" fill="none"/>
+<rect id="hint-bottom-margin" x="0" y="3" width="6" height="6" fill="none"/>
+<rect id="hint-left-margin" x="0" y="6" width="8" height="8" fill="none"/>
+<rect id="hint-right-margin" x="0" y="9" width="8" height="8" fill="none"/>
+</svg>

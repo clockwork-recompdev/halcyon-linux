@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Toggle top bar
+Exec=halcyon-mode bar
+Icon=halcyon-logo
+NoDisplay=true
+X-KDE-Shortcuts=Meta+Shift+Space

@@ -1,0 +1,13 @@
+# Live ISO in ./vm.sh: auto-mount the host's project folder for halcyon-dev.
+[Unit]
+Description=Halcyon project folder shared from the VM host
+ConditionVirtualization=vm
+
+[Mount]
+What=halcyon
+Where=/mnt/halcyon
+Type=9p
+Options=trans=virtio,version=9p2000.L,ro,nofail
+
+[Install]
+WantedBy=multi-user.target

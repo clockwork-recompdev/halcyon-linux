@@ -1,0 +1,13 @@
+post_install() {
+    /usr/lib/halcyon/apply-os-release
+    # Halcyon's own package repo (GitHub releases), so pacman -Syu updates it too.
+    if ! grep -q '^\[halcyon\]' /etc/pacman.conf; then
+        printf '\n[halcyon]\nSigLevel = Optional TrustAll\nInclude = /etc/pacman.d/halcyon-mirrorlist\n' >> /etc/pacman.conf
+    fi
+    systemctl --global enable halcyon-update-check.timer >/dev/null 2>&1 || true
+    plymouth-set-default-theme halcyon 2>/dev/null || true
+}
+
+post_upgrade() {
+    post_install
+}

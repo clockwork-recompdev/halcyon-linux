@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Switch Classic / Tiling mode
+Exec=halcyon-mode toggle
+Icon=halcyon-logo
+NoDisplay=true
+X-KDE-Shortcuts=Meta+Ctrl+Alt+Space

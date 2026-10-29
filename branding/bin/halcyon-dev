@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Inside the VM: install the branding package the host built with ./dev.sh and
+# reload Plasma so the changes show immediately.
+#   halcyon-dev          install + reset panel/desktop layout to Halcyon defaults
+#   halcyon-dev --keep   install, keep the current panel/desktop layout
+set -euo pipefail
+# Use the share this script was started from (e.g. /mnt/branding/bin/halcyon-dev),
+# else the standard mount point.
+M=$(cd -- "$(dirname -- "$(readlink -f -- "$0")")/../.." && pwd)
+[[ -d $M/work/dev ]] || M=/mnt/halcyon
+if [[ ! -d $M/work/dev ]] && ! mountpoint -q "$M"; then
+    sudo mkdir -p "$M"
+    sudo modprobe 9pnet_virtio 2>/dev/null || true   # not always auto-loaded
+    sudo mount -t 9p -o trans=virtio,version=9p2000.L,ro halcyon "$M" ||
+        { echo "No shared folder: start the VM with ./vm.sh from the project." >&2; exit 1; }
+fi
+pkg=$(ls -t "$M"/work/dev/halcyon-branding-*.pkg.tar.zst 2>/dev/null | head -1)
+[[ -n $pkg ]] || { echo "No package yet: run ./dev.sh on the host first." >&2; exit 1; }
+sudo pacman -U --noconfirm "$pkg"
+
+# Drop cached SVG renders so same-named themes really reload.
+rm -rf ~/.cache/ksvg-elements* ~/.cache/plasma_theme_* ~/.cache/plasma-svgelements* 2>/dev/null || true
+if [[ ${1:-} != --keep ]]; then
+    rm -f ~/.config/plasma-org.kde.plasma.desktop-appletsrc ~/.config/plasmashellrc
+fi
+
+# Bounce the window decoration so Aurorae re-reads its SVGs.
+kwin_dbus() { dbus-send --session --dest=org.kde.KWin /KWin org.kde.KWin.reconfigure; }
+theme=$(kreadconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme --default __aurorae__svg__HalcyonAero)
+kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme Breeze
+kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key library org.kde.breeze
+kwin_dbus; sleep 0.5
+kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key library org.kde.kwin.aurorae
+kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme "$theme"
+kwin_dbus
+
+systemctl --user restart plasma-plasmashell.service
+/usr/lib/halcyon/apply-shortcuts --force
+echo "Halcyon theme reloaded."
+echo "Shortcut and window-frame changes apply after you log out and back in."

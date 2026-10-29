@@ -1,0 +1,27 @@
+<THEME id="Halcyon" title="Halcyon" author="Halcyon Linux">
+<VIEW id="mainView" width="380" height="112" backgroundImage="panel.png" titleBar="false">
+  <TEXT id="title" left="26" top="17" width="328" height="16" value="wmpprop:player.currentMedia.name"
+        foregroundColor="#e6f6ff" fontFace="Source Sans 3" fontSize="10" fontStyle="bold"/>
+  <TEXT id="hint" left="26" top="31" width="328" height="14" value="Right-click or drop files to play"
+        foregroundColor="#7fb8d8" fontFace="Source Sans 3" fontSize="8"/>
+  <SLIDER id="seek" left="24" top="56" width="332" height="10" backgroundImage="track.png"
+          foregroundImage="fill.png" thumbImage="thumb.png" min="0" max="100"
+          value="wmpprop:player.controls.currentPosition"/>
+  <BUTTON id="btn_open" left="22" top="72" image="open.png" hoverImage="open_hover.png"
+          downImage="open_down.png" onClick="player.openPlayerDialog()" upToolTip="Open"/>
+  <BUTTON id="btn_prev" left="106" top="72" image="prev.png" hoverImage="prev_hover.png"
+          downImage="prev_down.png" onClick="player.controls.previous()" upToolTip="Prev"/>
+  <BUTTON id="btn_stop" left="146" top="72" image="stop.png" hoverImage="stop_hover.png"
+          downImage="stop_down.png" onClick="player.controls.stop()" upToolTip="Stop"/>
+  <BUTTON id="btn_play" left="186" top="72" image="play.png" hoverImage="play_hover.png"
+          downImage="play_down.png" onClick="player.controls.play()" upToolTip="Play"/>
+  <BUTTON id="btn_pause" left="186" top="72" image="pause.png" hoverImage="pause_hover.png"
+          downImage="pause_down.png" onClick="player.controls.pause()" upToolTip="Pause"/>
+  <BUTTON id="btn_next" left="226" top="72" image="next.png" hoverImage="next_hover.png"
+          downImage="next_down.png" onClick="player.controls.next()" upToolTip="Next"/>
+  <BUTTON id="btn_min" left="300" top="72" image="min.png" hoverImage="min_hover.png" downImage="min_down.png"
+          onClick="view.minimize()" upToolTip="Minimize"/>
+  <BUTTON id="btn_close" left="336" top="72" image="close.png" hoverImage="close_hover.png" downImage="close_down.png"
+          onClick="view.close()" upToolTip="Close"/>
+</VIEW>
+</THEME>

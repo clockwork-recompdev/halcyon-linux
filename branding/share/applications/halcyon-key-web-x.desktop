@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=X
+Exec=firefox --new-window https://x.com/
+Icon=halcyon-logo
+NoDisplay=true
+X-KDE-Shortcuts=Meta+Shift+X

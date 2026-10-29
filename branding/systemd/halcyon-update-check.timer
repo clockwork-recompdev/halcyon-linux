@@ -1,0 +1,10 @@
+[Unit]
+Description=Check for Halcyon updates daily
+
+[Timer]
+OnStartupSec=10min
+OnUnitActiveSec=1d
+Persistent=true
+
+[Install]
+WantedBy=timers.target

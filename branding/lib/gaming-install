@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# Root half of halcyon-gaming. Arguments: component ids chosen in the GUI.
+set -uo pipefail
+
+c=$'\e[38;2;30;155;224m'; r=$'\e[0m'; b=$'\e[1m'
+say() { printf '%s==>%s %s%s%s\n' "$c" "$r" "$b" "$*" "$r"; }
+finish() { echo; read -rp "$1 Press Enter to close." _; exit "${2:-0}"; }
+trap 'finish "Something went wrong (see above)." 1' ERR
+set -e
+
+user=$(id -nu "${PKEXEC_UID:-${SUDO_UID:-1000}}")
+gpu=$(lspci -nn | grep -Ei 'vga|3d|display' || true)
+has() { grep -qi "$1" <<<"$gpu"; }
+
+pkgs=() flatpaks=()
+for want_id in "$@"; do
+    case $want_id in
+        gpu)
+            # Mesa covers AMD and Intel; NVIDIA gets the open kernel modules
+            # (GTX 16xx / RTX and newer), DKMS when a non-stock kernel is chosen.
+            pkgs+=(mesa lib32-mesa vulkan-icd-loader lib32-vulkan-icd-loader)
+            has 1002 && pkgs+=(vulkan-radeon lib32-vulkan-radeon)
+            has 8086 && pkgs+=(vulkan-intel lib32-vulkan-intel intel-media-driver)
+            if has 10de; then
+                if [[ " $* " == *" zen "* ]]; then pkgs+=(nvidia-open-dkms linux-zen-headers)
+                else pkgs+=(nvidia-open); fi
+                pkgs+=(nvidia-utils lib32-nvidia-utils nvidia-settings libva-nvidia-driver)
+            fi
+            ;;
+        steam)
+            pkgs+=(steam lib32-pipewire lib32-libpulse)
+            # Steam needs the 32-bit Vulkan driver even if "gpu" wasn't ticked.
+            has 1002 && pkgs+=(lib32-vulkan-radeon lib32-mesa)
+            has 8086 && pkgs+=(lib32-vulkan-intel lib32-mesa)
+            has 10de && pkgs+=(lib32-nvidia-utils)
+            ;;
+        millennium) ;;   # built from the AUR afterwards, as the user
+        gamemode)  pkgs+=(gamemode lib32-gamemode) ;;
+        mangohud)  pkgs+=(mangohud lib32-mangohud goverlay) ;;
+        wine)      pkgs+=(wine-staging winetricks wine-mono wine-gecko lib32-gnutls lib32-alsa-plugins) ;;
+        lutris)    pkgs+=(lutris) ;;
+        gamescope) pkgs+=(gamescope) ;;
+        vesktop)   flatpaks+=(dev.vencord.Vesktop) ;;
+        prism)     pkgs+=(prismlauncher) ;;
+        zen)       pkgs+=(linux-zen linux-zen-headers) ;;
+        heroic)    flatpaks+=(com.heroicgameslauncher.hgl) ;;
+        protonup)  flatpaks+=(net.davidotek.pupgui2) ;;
+        *) echo "unknown component: $want_id" ;;
+    esac
+done
+
+# 32-bit libraries live in [multilib], which Arch ships disabled.
+if ! grep -q '^\[multilib\]' /etc/pacman.conf; then
+    say "Enabling the multilib repository"
+    sed -i '/^#\[multilib\]/,/^#Include/ s/^#//' /etc/pacman.conf
+fi
+
+if ((${#pkgs[@]})); then
+    say "Installing: ${pkgs[*]}"
+    # -Syu, not -Sy: Arch doesn't support partial upgrades.
+    pacman -Syu --needed --noconfirm "${pkgs[@]}"
+fi
+
+if ((${#flatpaks[@]})); then
+    say "Installing Flatpak apps: ${flatpaks[*]}"
+    pacman -S --needed --noconfirm flatpak
+    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+    flatpak install -y --noninteractive flathub "${flatpaks[@]}"
+fi
+
+if [[ " $* " == *" gamemode "* ]]; then
+    say "Adding $user to the gamemode group"
+    usermod -aG gamemode "$user"
+fi
+
+if [[ " $* " == *" zen "* ]]; then
+    # Give systemd-boot a Zen entry next to the stock one (GRUB/Limine pick it up on regen).
+    for dir in /boot/loader/entries /efi/loader/entries; do
+        for e in "$dir"/*.conf; do
+            [[ -f $e && $e != *zen* ]] && grep -q 'vmlinuz-linux$' "$e" || continue
+            sed -e 's/vmlinuz-linux$/vmlinuz-linux-zen/' -e 's/initramfs-linux\.img/initramfs-linux-zen.img/' \
+                -e 's/^title .*/& (Zen)/' "$e" > "${e%.conf}-zen.conf"
+            say "Added boot entry $(basename "${e%.conf}-zen.conf")"
+        done
+    done
+    [[ -f /boot/grub/grub.cfg ]] && grub-mkconfig -o /boot/grub/grub.cfg
+fi
+
+trap - ERR
+say "All done!"
+[[ " $* " == *" gamemode "* || " $* " == *" gpu "* || " $* " == *" zen "* ]] &&
+    echo "Reboot (or log out and back in) to finish setting things up."
+finish "Gaming setup complete."

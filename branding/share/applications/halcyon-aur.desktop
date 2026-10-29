@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=AUR Packages
+GenericName=Search and install from the Arch User Repository
+Comment=Find, review and install community packages
+Exec=konsole --hide-menubar -e halcyon-aur
+Icon=system-software-install
+Categories=System;PackageManager;
+Keywords=aur;yay;paru;install;package;software;

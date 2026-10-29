@@ -1,0 +1,86 @@
+Apps	Meta+Return	Terminal
+Apps	Meta+Shift+Return / Meta+Shift+B	Browser
+Apps	Meta+Shift+Alt+B	Browser (private)
+Apps	Meta+Shift+F	File manager
+Apps	Meta+Shift+N	Editor
+Apps	Meta+Shift+Q	Calculator
+Apps	Meta+Shift+M	Music (Halcyon Media Player)
+Apps	Meta+Shift+T	Activity (btop)
+Apps	Meta+Shift+A	ChatGPT
+Apps	Meta+Shift+Alt+A	Grok
+Apps	Meta+Shift+C	Calendar
+Apps	Meta+Shift+E	Email
+Apps	Meta+Shift+Y	YouTube
+Apps	Meta+Shift+Alt+G	WhatsApp
+Apps	Meta+Shift+Ctrl+G	Google Messages
+Apps	Meta+Shift+P	Google Photos
+Apps	Meta+Shift+S	Google Maps
+Apps	Meta+Shift+X	X
+Apps	Meta+Shift+Alt+X	X post
+Windows	Meta+W / Meta+Q	Close window
+Windows	Meta+F	Full screen
+Windows	Meta+Alt+F	Full width (maximize)
+Windows	Meta+M	Minimize window
+Windows	Meta+O	Pop window out (keep on top)
+Windows	Meta+Left	Focus window left
+Windows	Meta+Right	Focus window right
+Windows	Meta+Up	Focus window above
+Windows	Meta+Down	Focus window below
+Windows	Meta+Ctrl+Left	Snap window left
+Windows	Meta+Ctrl+Right	Snap window right
+Windows	Meta+Ctrl+Up	Snap window top
+Windows	Meta+Ctrl+Down	Snap window bottom
+Windows	Alt+Tab	Next window
+Windows	Meta+Ctrl+Alt+Up	Overview
+Tiling	Meta+T	Toggle window floating/tiling
+Tiling	Meta+J	Toggle window split
+Tiling	Meta+L	Cycle workspace layout
+Tiling	Meta+Alt+L	Cycle workspace layout back
+Tiling	Meta+Shift+Left	Swap window left
+Tiling	Meta+Shift+Right	Swap window right
+Tiling	Meta+Shift+Up	Swap window up
+Tiling	Meta+Shift+Down	Swap window down
+Tiling	Meta+-	Shrink window width
+Tiling	Meta+=	Grow window width
+Tiling	Meta+Shift+-	Shrink window height
+Tiling	Meta+Shift+=	Grow window height
+Tiling	Meta+Ctrl+Alt+Space	Switch Classic / Tiling mode
+Tiling	Meta+Shift+Space	Toggle top bar
+Workspaces	Meta+1	Switch to workspace 1
+Workspaces	Meta+2	Switch to workspace 2
+Workspaces	Meta+3	Switch to workspace 3
+Workspaces	Meta+4	Switch to workspace 4
+Workspaces	Meta+5	Switch to workspace 5
+Workspaces	Meta+6	Switch to workspace 6
+Workspaces	Meta+7	Switch to workspace 7
+Workspaces	Meta+8	Switch to workspace 8
+Workspaces	Meta+9	Switch to workspace 9
+Workspaces	Meta+0	Switch to workspace 10
+Workspaces	Meta+Shift+1	Move window to workspace 1
+Workspaces	Meta+Shift+2	Move window to workspace 2
+Workspaces	Meta+Shift+3	Move window to workspace 3
+Workspaces	Meta+Shift+4	Move window to workspace 4
+Workspaces	Meta+Shift+5	Move window to workspace 5
+Workspaces	Meta+Shift+6	Move window to workspace 6
+Workspaces	Meta+Shift+7	Move window to workspace 7
+Workspaces	Meta+Shift+8	Move window to workspace 8
+Workspaces	Meta+Shift+9	Move window to workspace 9
+Workspaces	Meta+Shift+0	Move window to workspace 10
+Workspaces	Meta+Tab	Next workspace
+Workspaces	Meta+Shift+Tab	Previous workspace
+System	Meta+Space	Launcher / search
+System	Meta+Alt+Space	Apps menu
+System	Meta+Escape	System menu (log out / power)
+System	Meta+Ctrl+L	Lock system
+System	Meta+K	Show keybindings
+System	Meta+`	Quake console
+System	Meta+Ctrl+V	Clipboard manager
+System	Meta+Ctrl+E	Emojis
+System	Meta+Ctrl+A	Audio settings
+System	Meta+Ctrl+B	Bluetooth settings
+System	Meta+Ctrl+N	Network settings
+System	Meta+Ctrl+D	Display settings
+System	Meta+Ctrl+P	Power settings
+Capture	Print	Screenshot
+Capture	Meta+Ctrl+Alt+C	Screenshot (region)
+Capture	Alt+Print	Screen recording

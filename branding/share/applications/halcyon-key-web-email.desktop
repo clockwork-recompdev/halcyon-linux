@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Email
+Exec=firefox --new-window https://app.hey.com
+Icon=halcyon-logo
+NoDisplay=true
+X-KDE-Shortcuts=Meta+Shift+E

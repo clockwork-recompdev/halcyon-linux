@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Reset AutoPlay Choices
+Comment=Forget "Always do this" choices for inserted discs
+Exec=sh -c 'kwriteconfig6 --file halcyonrc --group AutoPlay --key windows "" ; for k in dos audio dvdvideo bluray blank data; do kwriteconfig6 --file halcyonrc --group AutoPlay --key $k ""; done; kdialog --passivepopup "AutoPlay will ask again." 3'
+Icon=media-optical
+Categories=Settings;

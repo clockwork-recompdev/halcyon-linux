@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Halcyon Aero Slim
+Comment=Borderless tiling decoration with a glowing active edge
+X-KDE-PluginInfo-Author=Halcyon Linux
+X-KDE-PluginInfo-Name=HalcyonAeroSlim
+X-KDE-PluginInfo-Version=1.0
+X-KDE-PluginInfo-License=GPL-3.0-or-later
+X-KDE-ServiceTypes=KWin/Decoration

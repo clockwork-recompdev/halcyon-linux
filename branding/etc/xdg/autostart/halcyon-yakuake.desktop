@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Yakuake (Quake console)
+Exec=yakuake
+Icon=yakuake
+X-KDE-autostart-phase=2
+OnlyShowIn=KDE;

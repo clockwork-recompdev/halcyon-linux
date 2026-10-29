@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Halcyon AutoPlay
+Comment=Asks what to do when you insert a CD, DVD or game disc
+Exec=/usr/lib/halcyon/autoplay-daemon
+Icon=media-optical
+X-KDE-autostart-phase=2
+NoDisplay=true
