@@ -58,7 +58,10 @@ fi
 if ((${#pkgs[@]})); then
     say "Installing: ${pkgs[*]}"
     # -Syu, not -Sy: Arch doesn't support partial upgrades.
-    pacman -Syu --needed --noconfirm "${pkgs[@]}"
+    # --ask=4 lets a picked package replace one it conflicts with (wine-staging
+    # replaces the preinstalled wine, nvidia-open-dkms replaces nvidia-open);
+    # --noconfirm alone answers "no" and the whole install aborts.
+    pacman -Syu --needed --noconfirm --ask=4 "${pkgs[@]}"
 fi
 
 if ((${#flatpaks[@]})); then
