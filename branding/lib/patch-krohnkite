@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Make Krohnkite stop when KWin unloads it (halcyon-mode classic).
+#
+# KWin runs every QML script in one shared engine, so unloading Krohnkite
+# deletes its QML item but leaves the JS signal handlers it connected to
+# Workspace alive: windows kept being tiled after switching back to classic.
+# Every Krohnkite callback goes through KWinDriver.enter() / connect(), so a
+# flag set on Component.onDestruction turns them all off. (halcyon-mode
+# clears the keep-below layer Krohnkite left tiled windows on.)
+#
+#   patch-krohnkite <extracted krohnkite dir>
+set -euo pipefail
+d=$1
+js=$d/contents/code/script.js
+qml=$d/contents/ui/main.qml
+
+sed -i '0,/^"use strict";$/s//"use strict";\
+var HALCYON_STOPPED = false;\
+function halcyonStop() { HALCYON_STOPPED = true; }/' "$js"
+sed -i 's/if (typeof this.workspace === "undefined")$/if (typeof this.workspace === "undefined" || HALCYON_STOPPED)/' "$js"
+sed -i 's/^        if (this.entered)$/        if (this.entered || HALCYON_STOPPED)/' "$js"
+sed -i 's/^    Component.onCompleted: {$/    Component.onDestruction: K.halcyonStop();\n\n&/' "$qml"
+
+# Fail the build if a Krohnkite update moved the code we patch.
+grep -q 'function halcyonStop' "$js"
+grep -q '=== "undefined" || HALCYON_STOPPED' "$js"
+grep -q 'this.entered || HALCYON_STOPPED' "$js"
+grep -q 'K.halcyonStop()' "$qml"

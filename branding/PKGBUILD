@@ -153,6 +153,7 @@ package() {
     # Krohnkite dynamic tiling (MIT), used by tiling mode; off until halcyon-mode enables it.
     install -d "$share/kwin/scripts/krohnkite"
     bsdtar -xf "$srcdir/krohnkite-$_krohnkite.kwinscript" -C "$share/kwin/scripts/krohnkite"
+    bash "$startdir/lib/patch-krohnkite" "$share/kwin/scripts/krohnkite"
     install -Dm755 "$startdir/lib/apply-os-release" "$pkgdir/usr/lib/halcyon/apply-os-release"
     install -Dm644 "$startdir/hooks/halcyon-os-release.hook" "$share/libalpm/hooks/halcyon-os-release.hook"
     install -Dm644 "$startdir/desktop-packages.txt" "$share/halcyon/desktop-packages.txt"
