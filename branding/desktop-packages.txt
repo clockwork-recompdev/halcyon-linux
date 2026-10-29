@@ -80,3 +80,6 @@ pacman-contrib
 libnotify
 # Game library + on-screen keyboard
 python-evdev
+# Desktop gadgets (msitools: import gadget packs such as 8GadgetPack's installer)
+qt6-webengine
+msitools

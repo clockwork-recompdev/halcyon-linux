@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<gadget>
+  <name>CPU Meter</name>
+  <version>1.0</version>
+  <author name="Halcyon Linux"/>
+  <copyright>Halcyon Linux</copyright>
+  <description>Shows how hard your processor is working and how much memory is in use.</description>
+  <icons><icon width="64" height="64" src="icon.svg"/></icons>
+  <hosts>
+    <host name="sidebar">
+      <base type="HTML" apiVersion="1.0.0" src="meter.html"/>
+      <permissions>Full</permissions>
+      <platform minPlatformVersion="1.0"/>
+    </host>
+  </hosts>
+</gadget>

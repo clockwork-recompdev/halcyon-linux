@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Desktop Gadgets
+GenericName=Gadget Gallery
+Comment=Put clocks, weather, a CPU meter and other gadgets on your desktop; installs Windows Vista/7 gadgets
+Exec=halcyon-gadgets %f
+Icon=view-grid
+Categories=Utility;
+MimeType=application/x-windows-gadget;
+Keywords=gadgets;widgets;sidebar;vista;windows 7;clock;weather;calendar;

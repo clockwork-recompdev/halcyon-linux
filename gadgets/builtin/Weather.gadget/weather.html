@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { margin: 0; width: 132px; height: 86px; overflow: hidden; font-family: "Source Sans 3", "Segoe UI", sans-serif; color: #fff; cursor: default; }
+  body.big { width: 268px; height: 170px; }
+  .panel { position: absolute; left: 2px; top: 2px; right: 2px; bottom: 2px; border-radius: 8px; overflow: hidden;
+           background: linear-gradient(#5fb8f2, #2a7cc0 60%, #1d64a3); border: 1px solid rgba(255,255,255,.55);
+           box-shadow: 0 2px 5px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.6); }
+  .night .panel { background: linear-gradient(#23324a, #111a2a 70%, #0b1220); }
+  .gloss { position: absolute; left: 0; right: 0; top: 0; height: 45%; background: linear-gradient(rgba(255,255,255,.28), rgba(255,255,255,.05)); }
+  #icon { position: absolute; left: 0; top: 2px; }
+  #temp { position: absolute; right: 9px; top: 6px; font-size: 30px; font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,.4); }
+  #cond { position: absolute; right: 9px; top: 42px; font-size: 11px; opacity: .9; max-width: 70px; text-align: right; }
+  #city { position: absolute; left: 8px; right: 8px; bottom: 5px; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          text-shadow: 0 1px 1px rgba(0,0,0,.4); }
+  .big #icon svg { width: 84px; height: 84px; }
+  .big #temp { font-size: 44px; right: 14px; top: 8px; } .big #cond { top: 62px; right: 14px; font-size: 13px; max-width: 120px; }
+  .big #city { bottom: auto; top: 84px; font-size: 13px; left: 12px; }
+  #days { display: none; position: absolute; left: 6px; right: 6px; bottom: 6px; height: 58px; }
+  .big #days { display: flex; gap: 4px; }
+  .day { flex: 1; background: rgba(255,255,255,.14); border-radius: 5px; text-align: center; font-size: 11px; padding-top: 2px; }
+  .day b { display: block; font-weight: 600; }
+  .day span { opacity: .8; }
+  #msg { position: absolute; left: 8px; right: 8px; top: 24px; font-size: 12px; text-align: center; display: none; }
+</style>
+<script src="icons.js"></script>
+<script>
+var data = null;
+function S(k) { return System.Gadget.Settings.read(k); }
+function deg() { return S("units") === "f" ? "°F" : "°C"; }
+function show(msg) {
+  var m = document.getElementById("msg");
+  m.style.display = msg ? "block" : "none";
+  m.textContent = msg || "";
+  ["icon", "temp", "cond", "days"].forEach(function (id) { document.getElementById(id).style.visibility = msg ? "hidden" : ""; });
+}
+function render() {
+  document.body.className = (System.Gadget.docked ? "" : "big") + (data && !data.current.is_day ? " night" : "");
+  var city = S("city");
+  document.getElementById("city").textContent = city || "";
+  if (!S("lat") && S("lat") !== 0) return show("Choose a city in Options (the wrench)");
+  if (!data) return show("Loading…");
+  show("");
+  var c = data.current, big = !System.Gadget.docked;
+  document.getElementById("icon").innerHTML = WX.svg(c.weather_code, c.is_day, big ? 84 : 58);
+  document.getElementById("temp").textContent = Math.round(c.temperature_2m) + "°";
+  document.getElementById("cond").textContent = WX.text(c.weather_code);
+  var d = data.daily, html = "";
+  for (var i = 1; i < 4 && i < d.time.length; i++) {
+    var name = new Date(d.time[i] + "T12:00").toLocaleDateString(undefined, { weekday: "short" });
+    html += '<div class="day"><b>' + name + "</b>" + WX.svg(d.weather_code[i], 1, 26) + "<br><span>" +
+            Math.round(d.temperature_2m_max[i]) + "° / " + Math.round(d.temperature_2m_min[i]) + "°</span></div>";
+  }
+  document.getElementById("days").innerHTML = html;
+  document.title = city + " " + Math.round(c.temperature_2m) + deg();
+}
+function refresh() {
+  if (!S("lat") && S("lat") !== 0) return render();
+  var x = new XMLHttpRequest();
+  x.open("GET", "https://api.open-meteo.com/v1/forecast?latitude=" + S("lat") + "&longitude=" + S("lon") +
+         "&current=temperature_2m,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min" +
+         "&timezone=auto&forecast_days=4" + (S("units") === "f" ? "&temperature_unit=fahrenheit" : ""), true);
+  x.onload = function () {
+    try { data = JSON.parse(x.responseText); if (!data.current) throw 0; render(); }
+    catch (e) { if (!data) show("Weather service unavailable"); }
+  };
+  x.onerror = function () { if (!data) show("No connection"); };
+  x.send();
+}
+function init() {
+  System.Gadget.settingsUI = "settings.html";
+  System.Gadget.onSettingsClosed = function (e) { if (e.closeAction == e.Action.commit) { data = null; render(); refresh(); } };
+  System.Gadget.onDock = render;
+  System.Gadget.onUndock = render;
+  render();
+  refresh();
+  setInterval(refresh, 20 * 60 * 1000);
+}
+</script>
+</head>
+<body onload="init()">
+  <div class="panel"><div class="gloss"></div>
+    <div id="icon"></div><div id="temp"></div><div id="cond"></div><div id="city"></div>
+    <div id="days"></div><div id="msg"></div>
+  </div>
+</body>
+</html>

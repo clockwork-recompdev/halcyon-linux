@@ -11,3 +11,4 @@ __pycache__/
 /shot.png
 /player/bugs/*.png
 games/.devlib/
+gadgets/test/*.gadget

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<gadget>
+  <name>Calendar</name>
+  <version>1.0</version>
+  <author name="Halcyon Linux"/>
+  <copyright>Halcyon Linux</copyright>
+  <description>Today's date at a glance. Click to flip between the day and the month; the larger size shows both.</description>
+  <icons><icon width="64" height="64" src="icon.svg"/></icons>
+  <hosts>
+    <host name="sidebar">
+      <base type="HTML" apiVersion="1.0.0" src="calendar.html"/>
+      <permissions>Full</permissions>
+      <platform minPlatformVersion="1.0"/>
+    </host>
+  </hosts>
+</gadget>

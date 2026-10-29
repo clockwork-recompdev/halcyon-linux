@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { margin: 0; width: 300px; height: 250px; padding: 14px 16px; box-sizing: border-box; font: 13px "Source Sans 3", "Segoe UI", sans-serif; color: #1c2b39; }
+  label { display: block; margin: 8px 0 3px; }
+  .row { display: flex; gap: 6px; }
+  input[type=text] { flex: 1; padding: 3px 5px; font: inherit; }
+  select { width: 100%; font: inherit; }
+  #now { color: #47657f; margin-top: 4px; }
+</style>
+<script>
+var S = System.Gadget.Settings, picked = null, results = [];
+function search() {
+  var q = document.getElementById("q").value.trim(), sel = document.getElementById("res");
+  if (!q) return;
+  sel.innerHTML = "<option>Searching…</option>";
+  var x = new XMLHttpRequest();
+  x.open("GET", "https://geocoding-api.open-meteo.com/v1/search?count=8&name=" + encodeURIComponent(q), true);
+  x.onload = function () {
+    try { results = JSON.parse(x.responseText).results || []; } catch (e) { results = []; }
+    sel.innerHTML = "";
+    results.forEach(function (r, i) {
+      var o = document.createElement("option");
+      o.value = i;
+      o.text = [r.name, r.admin1, r.country].filter(function (s) { return s; }).join(", ");
+      sel.add(o);
+    });
+    if (!results.length) sel.innerHTML = "<option>No places found</option>";
+    choose();
+  };
+  x.send();
+}
+function choose() {
+  var r = results[document.getElementById("res").value];
+  if (r) { picked = r; document.getElementById("now").textContent = "Selected: " + r.name + (r.country ? ", " + r.country : ""); }
+}
+function init() {
+  document.getElementById("now").textContent = S.readString("city") ? "Current: " + S.readString("city") : "No city chosen yet";
+  document.getElementById(S.readString("units") === "f" ? "uf" : "uc").checked = true;
+  System.Gadget.onSettingsClosing = function (e) {
+    if (e.closeAction == e.Action.commit) {
+      if (picked) { S.write("lat", picked.latitude); S.write("lon", picked.longitude); S.writeString("city", picked.name); }
+      S.writeString("units", document.getElementById("uf").checked ? "f" : "c");
+    }
+  };
+}
+</script>
+</head>
+<body onload="init()">
+  <label for="q">Find a city</label>
+  <div class="row"><input type="text" id="q" placeholder="e.g. Berlin" onkeydown="if (event.keyCode == 13) search()"><button onclick="search()">Search</button></div>
+  <label for="res">Results</label>
+  <select id="res" size="4" onchange="choose()"></select>
+  <div id="now"></div>
+  <label>Show temperature in</label>
+  <label style="display:inline"><input type="radio" name="u" id="uc"> Celsius</label>
+  <label style="display:inline; margin-left:12px"><input type="radio" name="u" id="uf"> Fahrenheit</label>
+</body>
+</html>

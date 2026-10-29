@@ -86,6 +86,40 @@ and stays above full-screen games. Pad: A type, X backspace, Y space, LB shift, 
 Development: `games/run.sh` (launcher) and `games/run.sh osk show` run from the checkout;
 `HALCYON_OSK_DEBUG=1` logs gamepad input.
 
+## Desktop gadgets
+
+`halcyon-gadgets` puts Windows Vista/7 style gadgets on the desktop (autostarted; *Desktop Gadgets*
+in the app menu opens the gallery). Built in: Clock, Calendar, CPU Meter, Weather (Open-Meteo),
+Slide Show and Feed Headlines; Clock, Calendar and CPU Meter appear on first login. Hover a gadget
+for its toolbar (close, larger/smaller, options, drag); right-click for opacity and always-on-top.
+
+Real **Windows `.gadget` files** install by double-click or *Install from file…* (ZIP or CAB).
+*Install from file…* also takes a whole **gadget pack**: point it at 8GadgetPack's
+`GadgetPackSetup.msi` (or a .7z/.zip of gadgets) and it installs every gadget inside, including
+Windows 7's own Calendar, Clock, CPU Meter, Picture Puzzle and Slide Show. Gadgets that need
+8GadgetPack's compiled Windows helper (Glassy monitors, Clipboarder) are skipped and listed.
+Microsoft's gadgets are not shipped with Halcyon; users import them from a pack they have.
+Gadget pages run in QtWebEngine with a runtime (`gadgets/halcyon_gadgets/shim.js`) that provides
+the `System.Gadget` / `Machine` / `Time` / `Shell` / `Network` / `Sound` APIs, flyouts, settings
+dialogs, `g:background` / `g:image` / `g:text`, `gimage:///` thumbnails and the IE7-isms old gadgets
+lean on: `attachEvent`, `fireEvent`, callable collections, `all.tags()`, case-insensitive
+`getElementById`, XML data islands, unitless CSS lengths, `filter:alpha()`, `x-gadget:///` URLs,
+and COM objects with case-insensitive members (XMLHTTP, XMLDOM + `selectNodes`, FileSystemObject,
+WScript.Shell, Shell.Application, Scripting.Dictionary, **WMI** for CPU/disk/network/process
+monitors, a Windows Media Player stand-in on HTML5 audio). Simple VBScript helper blocks are
+translated to JavaScript (`vbscript.py`). Files are served from a token-protected local server with
+Windows-style case-insensitive, locale-folder lookups; `C:\Users\<you>` maps to your home, AppData
+to `~/.local/share/halcyon/gadget-data`, other drive letters to mounted disks. Compiled ActiveX
+controls and Windows-only services can't run.
+
+Gadget windows are XWayland windows kept below others and out of the taskbar. Instances and
+their settings live in `~/.config/halcyon/gadgets.json`; installed gadgets in
+`~/.local/share/halcyon/gadgets/`.
+
+Development: `gadgets/run.sh` runs the host from the checkout (`HALCYON_GADGETS_DEBUG=1` prints
+gadget console output); `gadgets/test/LegacyTest` is a compatibility test gadget
+(zip it to `LegacyTest.gadget` and install it).
+
 ## Updates
 
 `./release.sh` bumps the version, builds `halcyon-branding` and publishes it as a pacman

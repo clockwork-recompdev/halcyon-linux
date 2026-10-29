@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<gadget>
+  <name>Legacy Test</name>
+  <version>1.0.0.0</version>
+  <author name="Halcyon test"><info url="http://example.com"/></author>
+  <description>Exercises Windows Sidebar gadget APIs and IE-era scripting.</description>
+  <icons><icon height="48" width="48" src="Images/BG.PNG"/></icons>
+  <hosts><host name="sidebar"><base type="HTML" apiVersion="1.0.0" src="Test.html"/><permissions>Full</permissions><platform minPlatformVersion="1.0"/></host></hosts>
+</gadget>

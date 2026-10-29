@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { margin: 0; width: 134px; height: 160px; overflow: hidden; font-family: "Source Sans 3", "Segoe UI", sans-serif; cursor: default; }
+  body.big { width: 300px; height: 226px; }
+  .panel { position: absolute; left: 2px; top: 2px; right: 2px; bottom: 2px; border-radius: 7px; overflow: hidden;
+           background: linear-gradient(#2a3442, #121820); border: 1px solid rgba(255,255,255,.45);
+           box-shadow: 0 2px 5px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.35); color: #e8f1f8; }
+  .head { height: 20px; line-height: 20px; padding: 0 7px; font-size: 11px; font-weight: 600; color: #ffd09a; white-space: nowrap;
+          overflow: hidden; text-overflow: ellipsis; background: linear-gradient(rgba(255,255,255,.16), rgba(255,255,255,.03)); }
+  #list { padding: 0 3px; }
+  .item { box-sizing: border-box; padding: 2px 4px; font-size: 11px; line-height: 13px; border-radius: 4px; height: 30px; overflow: hidden; cursor: pointer; }
+  .big .item { font-size: 12px; line-height: 14px; }
+  .item:hover, .item.sel { background: rgba(110,180,255,.25); }
+  .foot { position: absolute; left: 0; right: 0; bottom: 0; height: 16px; text-align: center; font-size: 10px; color: #9fb3c6; }
+  .foot span { cursor: pointer; padding: 0 6px; } .foot span:hover { color: #fff; }
+  #msg { padding: 10px 8px; font-size: 11px; color: #b8c8d6; }
+</style>
+<script>
+var items = [], page = 0, sel = -1;
+function S(k) { return System.Gadget.Settings.readString(k); }
+function per() { return System.Gadget.docked ? 4 : 6; }
+function feedUrl() { return S("url") || "https://feeds.bbci.co.uk/news/rss.xml"; }
+function text(el, tag) {
+  var n = el.getElementsByTagName(tag)[0];
+  return n ? n.textContent.trim() : "";
+}
+function parse(xml) {
+  var out = [], nodes = xml.getElementsByTagName("item");
+  if (!nodes.length) nodes = xml.getElementsByTagName("entry");
+  for (var i = 0; i < nodes.length && i < 40; i++) {
+    var n = nodes[i], link = text(n, "link");
+    if (!link) { var l = n.getElementsByTagName("link")[0]; link = l ? l.getAttribute("href") : ""; }
+    out.push({ title: text(n, "title"), link: link, date: text(n, "pubDate") || text(n, "updated") || text(n, "published"),
+               desc: text(n, "description") || text(n, "summary") || text(n, "content") });
+  }
+  var t = xml.getElementsByTagName("title")[0];
+  document.getElementById("title").textContent = t ? t.textContent.trim() : "Feed Headlines";
+  return out;
+}
+function render() {
+  document.body.className = System.Gadget.docked ? "" : "big";
+  var l = document.getElementById("list"), html = "";
+  var start = page * per();
+  for (var i = start; i < start + per() && i < items.length; i++)
+    html += '<div class="item' + (i === sel ? " sel" : "") + '" onclick="pick(' + i + ')">' + esc(items[i].title) + "</div>";
+  l.innerHTML = html;
+  document.getElementById("pg").textContent = items.length ? (page + 1) + " / " + Math.ceil(items.length / per()) : "";
+}
+function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+function turn(d) { var n = Math.ceil(items.length / per()) || 1; page = (page + d + n) % n; render(); }
+function pick(i) {
+  sel = i;
+  render();
+  System.Gadget.Flyout.file = "flyout.html";
+  if (System.Gadget.Flyout.show) fillFlyout();
+  else System.Gadget.Flyout.show = true;
+}
+function fillFlyout() {
+  var d = System.Gadget.Flyout.document, it = items[sel];
+  if (!d || !it) return;
+  d.getElementById("t").textContent = it.title;
+  d.getElementById("d").textContent = it.date ? new Date(it.date).toLocaleString() : "";
+  var tmp = document.createElement("div");
+  tmp.innerHTML = it.desc;                       // feeds put HTML in the description; show just the text
+  d.getElementById("b").textContent = tmp.textContent.trim().slice(0, 600) || "No summary.";
+  d.getElementById("a").onclick = function () { System.Shell.execute(it.link); };
+}
+function refresh() {
+  var x = new XMLHttpRequest();
+  x.open("GET", feedUrl(), true);
+  x.onload = function () {
+    var xml = x.responseXML || new DOMParser().parseFromString(x.responseText, "text/xml");
+    items = parse(xml);
+    document.getElementById("msg").style.display = items.length ? "none" : "block";
+    document.getElementById("msg").textContent = "This feed has no headlines.";
+    render();
+  };
+  x.onerror = function () { document.getElementById("msg").textContent = "Couldn't reach the feed."; };
+  x.send();
+}
+function init() {
+  System.Gadget.settingsUI = "settings.html";
+  System.Gadget.onSettingsClosed = function (e) { if (e.closeAction == e.Action.commit) { page = 0; sel = -1; refresh(); } };
+  System.Gadget.onDock = render;
+  System.Gadget.onUndock = render;
+  System.Gadget.Flyout.onShow = fillFlyout;
+  System.Gadget.Flyout.onHide = function () { sel = -1; render(); };
+  render();
+  refresh();
+  setInterval(refresh, 15 * 60 * 1000);
+  setInterval(function () { if (!System.Gadget.Flyout.show) turn(1); }, 12000);
+}
+</script>
+</head>
+<body onload="init()">
+  <div class="panel">
+    <div class="head" id="title">Feed Headlines</div>
+    <div id="msg">Loading headlines…</div>
+    <div id="list"></div>
+    <div class="foot"><span onclick="turn(-1)">◀</span><span id="pg"></span><span onclick="turn(1)">▶</span></div>
+  </div>
+</body>
+</html>

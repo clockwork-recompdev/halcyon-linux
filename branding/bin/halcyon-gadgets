@@ -1,0 +1,3 @@
+#!/bin/sh
+# Halcyon Desktop Gadgets: Windows Vista/7 style gadgets (runs real .gadget files too).
+PYTHONPATH=/usr/share/halcyon-gadgets exec python3 -m halcyon_gadgets.host "$@"

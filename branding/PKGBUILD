@@ -6,7 +6,8 @@ pkgdesc="Halcyon Linux Frutiger Aero theme: Plasma style, window decoration, SDD
 arch=(any)
 license=(GPL-3.0-or-later)
 depends=(plasma-workspace kwin sddm plymouth oxygen oxygen-icons adobe-source-sans-fonts breeze-gtk konsole
-         kdialog yakuake qt6-declarative pciutils polkit udisks2 pyside6 python-evdev xorg-xwayland)
+         kdialog yakuake qt6-declarative pciutils polkit udisks2 pyside6 python-evdev xorg-xwayland
+         qt6-webengine libx11 msitools)
 makedepends=(python librsvg imagemagick)
 install=halcyon-branding.install
 _krohnkite=0.9.9.2
@@ -81,7 +82,7 @@ package() {
     done
     install -Dm644 "$startdir/etc/sddm.conf.d/10-halcyon.conf" "$pkgdir/etc/sddm.conf.d/10-halcyon.conf"
     for f in kwinrc plasmarc kcminputrc ksplashrc kscreenlockerrc konsolerc \
-             fastfetch/config.jsonc autostart/halcyon-yakuake.desktop autostart/halcyon-autoplay.desktop autostart/halcyon-screensaver.desktop autostart/halcyon-osk.desktop \
+             fastfetch/config.jsonc autostart/halcyon-yakuake.desktop autostart/halcyon-autoplay.desktop autostart/halcyon-screensaver.desktop autostart/halcyon-osk.desktop autostart/halcyon-gadgets.desktop \
              plasma-workspace/env/halcyon-shortcuts.sh; do
         install -Dm644 "$startdir/etc/xdg/$f" "$pkgdir/etc/xdg/$f"
     done
@@ -120,7 +121,7 @@ package() {
     # Tools, os-release branding, desktop package list
     for f in halcyon-install halcyon-mode halcyon-keys halcyon-gaming halcyon-dev \
              halcyon-disc-install halcyon-autoplay-dialog halcyon-aur halcyon-screensaver halcyon-player halcyon-wintheme halcyon-update \
-             halcyon-games halcyon-osk; do
+             halcyon-games halcyon-osk halcyon-gadgets; do
         install -Dm755 "$startdir/bin/$f" "$pkgdir/usr/bin/$f"
     done
     install -Dm755 "$startdir/lib/gaming-install" "$pkgdir/usr/lib/halcyon/gaming-install"
@@ -138,6 +139,12 @@ package() {
     install -m644 "$startdir"/../games/halcyon_games/*.py "$share/halcyon-games/halcyon_games/"
     install -Dm644 "$startdir/udev/70-halcyon-uinput.rules" "$pkgdir/usr/lib/udev/rules.d/70-halcyon-uinput.rules"
     install -Dm644 "$startdir/udev/halcyon-uinput.conf" "$pkgdir/usr/lib/modules-load.d/halcyon-uinput.conf"
+
+    # Desktop gadgets: host (Python + shim.js) and the built-in gadgets
+    install -d "$share/halcyon-gadgets/halcyon_gadgets" "$share/halcyon-gadgets/gadgets"
+    install -m644 "$startdir"/../gadgets/halcyon_gadgets/*.py "$startdir"/../gadgets/halcyon_gadgets/shim.js \
+        "$share/halcyon-gadgets/halcyon_gadgets/"
+    cp -r "$startdir"/../gadgets/builtin/*.gadget "$share/halcyon-gadgets/gadgets/"
 
     # otvdm (GPL-2.0): runs 16-bit Windows installers under 64-bit Wine.
     install -d "$share/halcyon/otvdm"

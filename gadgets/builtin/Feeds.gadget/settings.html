@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { margin: 0; width: 320px; height: 150px; padding: 14px 16px; box-sizing: border-box; font: 13px "Source Sans 3", "Segoe UI", sans-serif; color: #1c2b39; }
+  label { display: block; margin: 8px 0 3px; }
+  input, select { width: 100%; box-sizing: border-box; padding: 3px 5px; font: inherit; }
+</style>
+<script>
+var S = System.Gadget.Settings;
+var FEEDS = [["BBC News", "https://feeds.bbci.co.uk/news/rss.xml"], ["NASA Breaking News", "https://www.nasa.gov/news-release/feed/"],
+             ["Hacker News", "https://hnrss.org/frontpage"], ["Arch Linux News", "https://archlinux.org/feeds/news/"]];
+function init() {
+  var sel = document.getElementById("pre"), url = document.getElementById("url");
+  url.value = S.readString("url") || FEEDS[0][1];
+  FEEDS.forEach(function (f) { var o = document.createElement("option"); o.value = f[1]; o.text = f[0]; if (f[1] === url.value) o.selected = true; sel.add(o); });
+  sel.onchange = function () { url.value = sel.value; };
+  System.Gadget.onSettingsClosing = function (e) {
+    if (e.closeAction == e.Action.commit) S.writeString("url", url.value.trim());
+  };
+}
+</script>
+</head>
+<body onload="init()">
+  <label for="pre">Feed</label>
+  <select id="pre"><option value="">Custom…</option></select>
+  <label for="url">Feed address (RSS or Atom)</label>
+  <input type="text" id="url">
+</body>
+</html>

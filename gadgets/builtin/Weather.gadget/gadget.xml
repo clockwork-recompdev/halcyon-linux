@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<gadget>
+  <name>Weather</name>
+  <version>1.0</version>
+  <author name="Halcyon Linux"/>
+  <copyright>Halcyon Linux</copyright>
+  <description>Current conditions and a three-day forecast for any city, from Open-Meteo.</description>
+  <icons><icon width="64" height="64" src="icon.svg"/></icons>
+  <hosts>
+    <host name="sidebar">
+      <base type="HTML" apiVersion="1.0.0" src="weather.html"/>
+      <permissions>Full</permissions>
+      <platform minPlatformVersion="1.0"/>
+    </host>
+  </hosts>
+</gadget>

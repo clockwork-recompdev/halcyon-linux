@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { margin: 0; width: 290px; height: 250px; padding: 14px 16px; box-sizing: border-box;
+         font: 13px "Source Sans 3", "Segoe UI", sans-serif; color: #1c2b39; }
+  label { display: block; margin: 10px 0 3px; }
+  input[type=text], select { width: 100%; box-sizing: border-box; padding: 3px 5px; font: inherit; }
+  .faces { display: flex; gap: 6px; }
+  .faces button { flex: 1; padding: 6px 0; border: 1px solid #b9cbd9; border-radius: 4px; background: #f3f8fc; font: inherit; cursor: pointer; }
+  .faces button.on { border-color: #1e9be0; background: #d9effc; font-weight: 600; }
+  .check { margin-top: 12px; }
+</style>
+<script>
+var face = "aero";
+function pick(f) {
+  face = f;
+  var b = document.querySelectorAll(".faces button");
+  for (var i = 0; i < b.length; i++) b[i].className = b[i].getAttribute("data-f") === f ? "on" : "";
+}
+function init() {
+  var S = System.Gadget.Settings;
+  pick(S.readString("face") || "aero");
+  document.getElementById("name").value = S.readString("name");
+  document.getElementById("sec").checked = S.read("seconds") !== false;
+  var sel = document.getElementById("zone"), cur = S.readString("zone");
+  var zones = System.Time.timeZones;
+  var o = document.createElement("option");
+  o.value = ""; o.text = "Current computer time (" + System.Time.currentTimeZone.displayName + ")";
+  sel.add(o);
+  for (var i = 0; i < zones.count; i++) {
+    var z = zones.item(i);
+    o = document.createElement("option");
+    o.value = z.name; o.text = z.displayName;
+    if (z.name === cur) o.selected = true;
+    sel.add(o);
+  }
+  System.Gadget.onSettingsClosing = function (e) {
+    if (e.closeAction == e.Action.commit) {
+      S.writeString("face", face);
+      S.writeString("name", document.getElementById("name").value);
+      S.writeString("zone", sel.value);
+      S.write("seconds", document.getElementById("sec").checked);
+    }
+    e.cancel = false;
+  };
+}
+</script>
+</head>
+<body onload="init()">
+  <label>Clock face</label>
+  <div class="faces">
+    <button data-f="aero" onclick="pick('aero')">Aero</button>
+    <button data-f="night" onclick="pick('night')">Night</button>
+    <button data-f="classic" onclick="pick('classic')">Classic</button>
+    <button data-f="leaf" onclick="pick('leaf')">Leaf</button>
+  </div>
+  <label for="name">Clock name</label>
+  <input type="text" id="name" maxlength="20" placeholder="e.g. Tokyo">
+  <label for="zone">Time zone</label>
+  <select id="zone"></select>
+  <div class="check"><label><input type="checkbox" id="sec"> Show the second hand</label></div>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { margin: 0; width: 134px; height: 104px; overflow: hidden; font-family: "Source Sans 3", "Segoe UI", sans-serif; cursor: default; }
+  body.big { width: 330px; height: 250px; }
+  .frame { position: absolute; left: 2px; top: 2px; right: 2px; bottom: 2px; background: #10151b; border-radius: 4px;
+           border: 1px solid rgba(255,255,255,.5); box-shadow: 0 2px 5px rgba(0,0,0,.5); overflow: hidden; }
+  .frame img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 1s; }
+  .frame img.on { opacity: 1; }
+  .gloss { position: absolute; left: 0; right: 0; top: 0; height: 40%; background: linear-gradient(rgba(255,255,255,.18), rgba(255,255,255,0)); pointer-events: none; }
+  #bar { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); display: flex; gap: 2px; padding: 2px 4px;
+         background: rgba(10,16,24,.75); border: 1px solid rgba(255,255,255,.35); border-radius: 11px; opacity: 0; transition: opacity .2s; }
+  .frame:hover #bar { opacity: 1; }
+  #bar span { width: 20px; height: 18px; line-height: 18px; text-align: center; color: #fff; font-size: 11px; border-radius: 9px; cursor: pointer; }
+  #bar span:hover { background: rgba(120,190,255,.35); }
+  #msg { position: absolute; left: 8px; right: 8px; top: 50%; transform: translateY(-50%); color: #cfe0ee; font-size: 11px; text-align: center; }
+</style>
+<script>
+var files = [], idx = -1, timer = null, paused = false, imgs, cur = 0;
+var EXT = /\.(jpe?g|png|gif|webp|bmp|avif)$/i;
+function S(k) { return System.Gadget.Settings.read(k); }
+function collect(folder, depth) {
+  var item = System.Shell.itemFromPath(folder);
+  if (!item || !item.isFolder) return;
+  var items = item.SHFolder.Items;
+  for (var i = 0; i < items.count && files.length < 500; i++) {
+    var it = items.item(i);
+    if (it.isFolder) { if (depth < 2) collect(it.path, depth + 1); }
+    else if (EXT.test(it.name)) files.push(it.path);
+  }
+}
+function load() {
+  files = [];
+  collect(S("folder") || System.Shell.knownFolderPath("Pictures"), 0);
+  if (S("shuffle") !== false) files.sort(function () { return Math.random() - 0.5; });
+  idx = -1;
+  document.getElementById("msg").textContent = files.length ? "" : "No pictures found. Pick a folder in Options.";
+  next();
+  restart();
+}
+function show(i) {
+  if (!files.length) return;
+  idx = (i + files.length) % files.length;
+  var img = imgs[1 - cur];
+  img.onload = function () { imgs[cur].className = ""; img.className = "on"; cur = 1 - cur; };
+  img.src = files[idx];
+}
+function next() { show(idx + 1); }
+function prev() { show(idx - 1); }
+function restart() {
+  clearInterval(timer);
+  timer = paused ? null : setInterval(next, (parseInt(S("interval"), 10) || 10) * 1000);
+  document.getElementById("pp").textContent = paused ? "▶" : "❚❚";
+}
+function toggle() { paused = !paused; restart(); }
+function open() { if (files[idx]) System.Shell.execute(files[idx]); }
+function size() { document.body.className = System.Gadget.docked ? "" : "big"; }
+function init() {
+  imgs = document.querySelectorAll(".frame img");
+  System.Gadget.settingsUI = "settings.html";
+  System.Gadget.onSettingsClosed = function (e) { if (e.closeAction == e.Action.commit) load(); };
+  System.Gadget.onDock = size;
+  System.Gadget.onUndock = size;
+  size();
+  load();
+}
+</script>
+</head>
+<body onload="init()">
+  <div class="frame" ondblclick="open()">
+    <img alt=""><img alt=""><div class="gloss"></div><div id="msg"></div>
+    <div id="bar"><span onclick="prev()" title="Previous">◀</span><span id="pp" onclick="toggle()" title="Pause">❚❚</span><span onclick="next()" title="Next">▶</span><span onclick="open()" title="Open picture">⤢</span></div>
+  </div>
+</body>
+</html>
