@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=On-Screen Keyboard
+GenericName=Gamepad Keyboard
+Comment=Type with a gamepad or the mouse (Guide + X opens it anywhere)
+Exec=halcyon-osk toggle
+Icon=input-keyboard
+Categories=Utility;Accessibility;
+Keywords=keyboard;osk;virtual;gamepad;controller;touch;

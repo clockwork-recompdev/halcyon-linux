@@ -6,6 +6,9 @@ post_install() {
     fi
     systemctl --global enable halcyon-update-check.timer >/dev/null 2>&1 || true
     plymouth-set-default-theme halcyon 2>/dev/null || true
+    # On-screen keyboard: load uinput now and give the logged-in user access.
+    modprobe uinput 2>/dev/null || true
+    udevadm trigger --subsystem-match=misc --sysname-match=uinput 2>/dev/null || true
 }
 
 post_upgrade() {

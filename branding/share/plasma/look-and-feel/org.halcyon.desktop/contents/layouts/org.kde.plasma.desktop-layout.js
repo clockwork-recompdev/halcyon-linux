@@ -15,6 +15,7 @@ tasks.writeConfig("launchers", [
     "applications:org.kde.dolphin.desktop",
     "applications:firefox.desktop",
     "applications:org.kde.konsole.desktop",
+    "applications:halcyon-games.desktop",
     "applications:systemsettings.desktop"
 ]);
 panel.addWidget("org.kde.plasma.marginsseparator");

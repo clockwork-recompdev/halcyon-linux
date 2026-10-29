@@ -1,0 +1,2 @@
+# The on-screen keyboard types through /dev/uinput: let the logged-in user open it.
+KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"

@@ -10,3 +10,4 @@ __pycache__/
 # personal screenshots / bug captures
 /shot.png
 /player/bugs/*.png
+games/.devlib/

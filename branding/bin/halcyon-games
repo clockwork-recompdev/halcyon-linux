@@ -1,0 +1,3 @@
+#!/bin/sh
+# Halcyon Games: Steam, Windows and Linux games in one library (--big for gamepad mode).
+PYTHONPATH=/usr/share/halcyon-games exec python3 -m halcyon_games.app "$@"

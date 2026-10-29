@@ -68,6 +68,24 @@ Testing in the VM (no optical drive needed):
     ./vm-disc.sh "path/to/Game Disc 1.iso"    # insert
     ./vm-disc.sh eject
 
+## Game library & on-screen keyboard
+
+**Halcyon Games** (`halcyon-games`) lists installed Steam games, Windows programs installed through
+Wine (disc installs included), Linux games from the app menu and anything added with *Add a Game…*
+(a `.exe` runs in the shared Windows environment) in a classic olive game-client window. Favorites,
+hidden games and added games are kept in `~/.config/halcyon/games.json`.
+
+`F11`, Start, or `halcyon-games --big` switches to a full-screen menu for the TV: the game's art
+fills the screen and a gamepad drives it (A play, X favorite, Y search, Start back to the window).
+
+The **on-screen keyboard** (`halcyon-osk`, autostarted) opens with **Guide + X** on any gamepad, from
+the app menu, or from the launcher's search. It types into whatever has focus through a virtual
+uinput keyboard (US layout labels), takes the gamepad over while open so the game doesn't react,
+and stays above full-screen games. Pad: A type, X backspace, Y space, LB shift, RB enter, B close.
+
+Development: `games/run.sh` (launcher) and `games/run.sh osk show` run from the checkout;
+`HALCYON_OSK_DEBUG=1` logs gamepad input.
+
 ## Updates
 
 `./release.sh` bumps the version, builds `halcyon-branding` and publishes it as a pacman

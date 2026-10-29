@@ -22,14 +22,29 @@ FZF=(fzf --height=60% --layout=reverse --border=rounded --border-label=" Halcyon
 
 step() { printf '\n%s●%s %s%s%s\n' "$c" "$r" "$b" "$*" "$r"; }
 ok()   { printf '  %s✓%s %s\n' "$g" "$r" "$*"; }
-die()  { printf '\n%s✗ %s%s\n  Details: %s\n' "$red" "$*" "$r" "$LOG"; read -rp "Press Enter to close. " _; exit 1; }
+die()  { printf '\n%s✗ %s%s\n  Details: %s\n' "$red" "$*" "$r" "$LOG"; read -rp "Press Enter to close. " _ || true; exit 1; }
 run()  { "$@" >>"$LOG" 2>&1 || die "Failed: $*"; }
 
+# Never let a failure close the window silently.
+trap 'die "Unexpected error (line $LINENO)."' ERR
+
 # ------------------------------------------------------------- the image ---
-SFS=$(ls /run/archiso/bootmnt/*/x86_64/airootfs.sfs 2>/dev/null | head -1)
-BOOTDIR=$(dirname "$(dirname "$SFS")")/boot/x86_64
-[[ -f $SFS && -f $BOOTDIR/vmlinuz-linux ]] || die "Run this from the Halcyon live USB/DVD."
-LIVE_DISK=$(lsblk -no PKNAME "$(findmnt -no SOURCE /run/archiso/bootmnt)" 2>/dev/null || true)
+# With enough RAM, a USB boot copies the image to RAM and unmounts the stick
+# (archiso copytoram=auto), so look there first.
+SFS=""
+for f in /run/archiso/copytoram/airootfs.sfs /run/archiso/bootmnt/*/x86_64/airootfs.sfs; do
+    [[ -f $f ]] && { SFS=$f; break; }
+done
+[[ -n $SFS ]] || die "Run this from the Halcyon live USB/DVD."
+# The boot medium (to keep it off the disk list), found by the ISO's UUID
+# since it may no longer be mounted.
+LIVE_DISK=""
+iso_uuid=$(grep -o 'archisosearchuuid=[^ ]*' /proc/cmdline | cut -d= -f2 || true)
+if [[ -n $iso_uuid ]]; then
+    live_dev=$(blkid -U "$iso_uuid" 2>/dev/null || true)
+    [[ -n $live_dev ]] && LIVE_DISK=$(lsblk -no PKNAME "$live_dev" 2>/dev/null | head -1 || true)
+    [[ -z $LIVE_DISK && -n $live_dev ]] && LIVE_DISK=${live_dev#/dev/}   # whole-disk ISO (e.g. /dev/sr0)
+fi
 UEFI=0; [[ -d /sys/firmware/efi ]] && UEFI=1
 
 clear
@@ -124,8 +139,13 @@ run sgdisk -n1:1MiB:+1MiB -t1:ef02 -c1:HALCYON_BIOS \
            -n3:0:0       -t3:8304 -c3:HALCYON_ROOT "$DISK"
 run partprobe "$DISK"; udevadm settle
 part() { lsblk -lnpo NAME,PARTLABEL "$DISK" | awk -v l="$1" '$2==l {print $1}'; }
-BOOTP=$(part HALCYON_BOOT) ROOTP=$(part HALCYON_ROOT)
-[[ -b $BOOTP && -b $ROOTP ]] || die "Couldn't find the new partitions."
+BIOSP=$(part HALCYON_BIOS) BOOTP=$(part HALCYON_BOOT) ROOTP=$(part HALCYON_ROOT)
+[[ -b $BIOSP && -b $BOOTP && -b $ROOTP ]] || die "Couldn't find the new partitions."
+# The new partitions sit on top of whatever was there before (e.g. an old
+# EFI partition at 1 MiB); leftover filesystem headers make limine refuse
+# the BIOS boot partition, so clear it and the others' signatures.
+run dd if=/dev/zero of="$BIOSP" bs=1M count=1 conv=fsync
+run wipefs -af "$BOOTP" "$ROOTP"
 ok "Partitioned"
 
 ROOTDEV=$ROOTP
@@ -158,7 +178,9 @@ unsquashfs -f -p "$(nproc)" -d "$TARGET" "$SFS" 2>>"$LOG" | stdbuf -o0 tr "\r" "
     while read -r pct; do printf '\r  %s%s%s copied ' "$c" "$pct" "$r"; done ||
     die "Copying the system failed."
 printf '\r%*s\r' 30 ''
-cp "$BOOTDIR/vmlinuz-linux" "$TARGET/boot/"
+vmlinuz=$(ls "$TARGET"/usr/lib/modules/*/vmlinuz 2>/dev/null | head -1 || true)
+[[ -f $vmlinuz ]] || die "No kernel found in the system image."
+cp "$vmlinuz" "$TARGET/boot/vmlinuz-linux"
 ok "System copied"
 
 # ------------------------------------------------------- live -> installed ---

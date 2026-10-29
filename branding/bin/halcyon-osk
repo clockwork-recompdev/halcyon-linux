@@ -1,0 +1,3 @@
+#!/bin/sh
+# Halcyon on-screen keyboard: halcyon-osk [show|hide|toggle]; Guide + X on a gamepad.
+PYTHONPATH=/usr/share/halcyon-games exec python3 -m halcyon_games.osk "$@"

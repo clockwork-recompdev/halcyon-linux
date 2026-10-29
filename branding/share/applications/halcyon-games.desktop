@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=Halcyon Games
+GenericName=Game Library
+Comment=All your Steam, Windows and Linux games in one place
+Exec=halcyon-games
+Icon=applications-games
+Categories=Game;
+Keywords=games;library;steam;wine;launcher;big picture;controller;gamepad;
+Actions=big;
+
+[Desktop Action big]
+Name=Big Picture Mode
+Exec=halcyon-games --big

@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Halcyon On-Screen Keyboard
+Exec=halcyon-osk --daemon
+NoDisplay=true
+X-KDE-autostart-phase=2

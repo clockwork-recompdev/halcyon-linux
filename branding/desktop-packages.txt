@@ -78,3 +78,5 @@ python-mpv
 mpv
 pacman-contrib
 libnotify
+# Game library + on-screen keyboard
+python-evdev
