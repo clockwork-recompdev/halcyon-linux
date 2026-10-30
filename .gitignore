@@ -12,3 +12,4 @@ __pycache__/
 /player/bugs/*.png
 games/.devlib/
 gadgets/test/*.gadget
+/build.log
