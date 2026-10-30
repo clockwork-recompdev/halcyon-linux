@@ -146,6 +146,7 @@ fi
 # ---------------------------------------------------------- run it ---
 echo $$ > "$LOCK"
 trap 'rm -f "$LOCK"' EXIT
+started=$(date +%s)
 popup "Starting $title…"
 log=$STATE/logs/$(tr -c 'A-Za-z0-9._-' '_' <<<"$title" | sed 's/_*$//').log
 (
@@ -163,3 +164,6 @@ if grep -qE "could not load|File not found|cannot find|not a valid" "$log"; then
     exit 1
 fi
 popup "$title is done. Installed programs are in the start menu under Wine › Programs."
+# Old disc games almost always need their last official patch (often it also
+# drops the disc check): look it up for the game that was just installed.
+command -v halcyon-games >/dev/null && setsid -f halcyon-games --patches-since "$started" >/dev/null 2>&1

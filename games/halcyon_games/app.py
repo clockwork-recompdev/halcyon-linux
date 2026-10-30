@@ -2,6 +2,7 @@
 classic game-client window, plus a full-screen menu for playing with a gamepad."""
 import argparse
 import os
+import re
 import subprocess
 import sys
 import time
@@ -314,6 +315,8 @@ class DesktopView(QWidget):
             if g.folder:
                 m.addAction("Open install folder",
                             lambda: QProcess.startDetached("xdg-open", [g.folder]))
+            if g.source == "Windows":
+                m.addAction("Find patches…", lambda: self.l.find_patches(g))
             m.addSeparator()
             if g.id.startswith("custom:"):
                 m.addAction("Rename…", lambda: self.l.rename(g))
@@ -1415,6 +1418,25 @@ class Launcher(QWidget):
         self.desktop.details.set_game(self.desktop.current())
         self.big.update()
 
+    def find_patches(self, g, auto=False):
+        from .patchui import PatchDialog
+        d = PatchDialog(self, g, auto=auto)
+        d.setAttribute(Qt.WA_DeleteOnClose)
+        d.show()
+        return d
+
+    def patches_since(self, ts):
+        """After a disc install: offer patches for the Windows game(s) it just added."""
+        apps = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "applications"
+        new = [g for g in self.games if g.source == "Windows" and g.id.startswith("desktop:")
+               and (apps / g.id[8:]).exists() and (apps / g.id[8:]).stat().st_mtime >= ts]
+        # Several shortcuts per game are common (game, editor, readme): offer the main one.
+        new.sort(key=lambda g: (bool(re.search(r"edit|setup|readme|uninstall|help|manual", g.name, re.I)),
+                                len(g.name)))
+        if new:
+            self.find_patches(new[0], auto=True)
+        return bool(new)
+
     def toggle_favorite(self, g):
         if not g:
             return
@@ -1554,6 +1576,8 @@ def main():
     ap = argparse.ArgumentParser(prog="halcyon-games", description="Halcyon game library")
     ap.add_argument("--big", action="store_true", help="start in full-screen gamepad mode")
     ap.add_argument("--screenshot", metavar="PNG", help=argparse.SUPPRESS)
+    ap.add_argument("--patches-since", type=float, metavar="TIME",
+                    help="offer patches for Windows games installed after TIME (used by the disc installer)")
     args = ap.parse_args()
     app = QApplication(sys.argv[:1])
     app.setApplicationName("halcyon-games")
@@ -1567,6 +1591,8 @@ def main():
         QTimer.singleShot(300, lambda: (w.grab().save(args.screenshot), app.quit()))
         return app.exec()
     w.show()
+    if args.patches_since:
+        QTimer.singleShot(500, lambda: w.patches_since(args.patches_since))
     return app.exec()
 
 
