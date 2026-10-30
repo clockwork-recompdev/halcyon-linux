@@ -126,9 +126,10 @@ package() {
     for f in halcyon-install halcyon-mode halcyon-keys halcyon-gaming halcyon-dev \
              halcyon-disc-install halcyon-autoplay-dialog halcyon-aur halcyon-screensaver halcyon-player halcyon-wintheme halcyon-update \
              halcyon-games halcyon-osk halcyon-gadgets halcyon-messenger halcyon-mediacenter \
-             halcyon-retro-browser halcyon-welcome; do
+             halcyon-navigator halcyon-welcome; do
         install -Dm755 "$startdir/bin/$f" "$pkgdir/usr/bin/$f"
     done
+    ln -s halcyon-navigator "$pkgdir/usr/bin/halcyon-retro-browser"    # its old name
     install -Dm755 "$startdir/lib/gaming-install" "$pkgdir/usr/lib/halcyon/gaming-install"
     install -Dm755 "$startdir/lib/apply-shortcuts" "$pkgdir/usr/lib/halcyon/apply-shortcuts"
     install -Dm755 "$startdir/lib/autoplay-daemon" "$pkgdir/usr/lib/halcyon/autoplay-daemon"
@@ -154,7 +155,7 @@ package() {
     install -d "$share/halcyon-welcome/halcyon_welcome"
     install -m644 "$startdir"/../welcome/halcyon_welcome/*.py "$share/halcyon-welcome/halcyon_welcome/"
 
-    # Halcyon Retro Browser, with Ruffle (Flash emulator, MIT/Apache) bundled
+    # Halcyon Navigator (the retro web browser), with Ruffle (Flash emulator, MIT/Apache) bundled
     install -d "$share/halcyon-retro/halcyon_retro" "$share/halcyon-retro/ruffle"
     install -m644 "$startdir"/../retro/halcyon_retro/*.py "$share/halcyon-retro/halcyon_retro/"
     bsdtar -xf "$srcdir/ruffle-$_ruffle.tgz" -C "$share/halcyon-retro/ruffle" --strip-components=1 \

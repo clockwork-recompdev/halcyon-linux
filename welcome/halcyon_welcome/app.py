@@ -232,9 +232,9 @@ def tasks():
         ("messenger", "im-user", "Halcyon Messenger",
          "Chat with your Discord friends in a classic Messenger window.",
          [("Open Messenger", ["halcyon-messenger"])], "extras"),
-        ("retro", "internet-web-browser", "Retro Browser",
+        ("retro", "internet-web-browser", "Halcyon Navigator",
          "Browse the restored web of the 1990s and 2000s through Protoweb, with Flash and Java applets that "
-         "work again.", [("Open Retro Browser", ["halcyon-retro-browser"])], "extras"),
+         "work again.", [("Open Navigator", ["halcyon-navigator"])], "extras"),
         ("player", "multimedia-player", "Halcyon Player",
          "A music player with the classic skins.", [("Open Player", ["halcyon-player"])], "extras"),
         ("gadgets", "preferences-desktop-gadgets", "Desktop gadgets",

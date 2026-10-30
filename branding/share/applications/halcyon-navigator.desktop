@@ -1,9 +1,9 @@
 [Desktop Entry]
 Type=Application
-Name=Halcyon Retro Browser
+Name=Halcyon Navigator
 GenericName=Web Browser for the Old Web
 Comment=Browse restored 90s and 2000s websites through Protoweb, with Flash and Java
-Exec=halcyon-retro-browser %u
+Exec=halcyon-navigator %u
 Icon=internet-web-browser
 Categories=Network;WebBrowser;
 Keywords=protoweb;retro;flash;java;old web;geocities;y2k;

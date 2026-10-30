@@ -1,4 +1,4 @@
-"""Halcyon Retro Browser: the old web, the way it looked.
+"""Halcyon Navigator: the old web, the way it looked.
 
 Plain http:// goes through Protoweb (a proxy of restored 1990s/2000s sites),
 https:// stays direct. Flash runs through Ruffle and Java applets through
@@ -78,7 +78,7 @@ from PySide6.QtWidgets import (QApplication, QFileDialog, QHBoxLayout, QInputDia
                                QMainWindow, QMenu, QMessageBox, QProgressBar, QStackedWidget, QStatusBar, QTabBar,
                                QToolButton, QVBoxLayout, QWidget)
 
-APP = "Halcyon Retro Browser"
+APP = "Halcyon Navigator"
 
 # Flash (Ruffle) and Java applets (CheerpJ), added to every page that needs them.
 PLUGINS_JS = r"""
@@ -764,8 +764,8 @@ def light_palette():
 def main():
     QApplication.setAttribute(Qt.AA_ShareOpenGLContexts)
     app = QApplication(sys.argv)
-    app.setApplicationName("halcyon-retro-browser")
-    app.setDesktopFileName("halcyon-retro-browser")
+    app.setApplicationName("halcyon-navigator")
+    app.setDesktopFileName("halcyon-navigator")
     app.setStyle("Fusion")
     app.setPalette(light_palette())        # IE was always light, whatever the desktop scheme
     if hasattr(app.styleHints(), "setColorScheme"):

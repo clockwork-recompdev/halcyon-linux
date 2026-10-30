@@ -1,0 +1,3 @@
+#!/bin/sh
+# Halcyon Navigator: the old web through Protoweb, with Flash (Ruffle) and Java applets.
+PYTHONPATH=/usr/share/halcyon-retro exec python3 -m halcyon_retro.app "$@"
