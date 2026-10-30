@@ -1,0 +1,5 @@
+#!/bin/sh
+# Halcyon Search: programs, files, e-mail, contacts, appointments and notes in one window (Super+Ctrl+F).
+here=/usr/share/halcyon-search
+[ -d "$here" ] || here=$(dirname "$(readlink -f "$0")")/../../search   # dev checkout
+PYTHONPATH=$here exec python3 -m halcyon_search.app "$@"

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Search
+GenericName=Search Everything
+Comment=Find programs, files, e-mail, contacts, appointments and notes
+Exec=halcyon-search
+Icon=system-search
+Categories=System;Utility;
+Keywords=search;find;files;locate;everything;

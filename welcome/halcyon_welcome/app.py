@@ -217,6 +217,10 @@ def tasks():
         ("network", "network-wireless", "Connect to the Internet",
          "Join a wireless network, or set up a wired, mobile or VPN connection.",
          [("Network connections", ["systemsettings", "kcm_networkmanagement"])], "start"),
+        ("search", "system-search", "Find anything",
+         "One search box for programs, files, e-mail, contacts, appointments and sticky notes - with "
+         "Show only buttons for e-mail, documents, pictures and music. Press Super+Ctrl+F.",
+         [("Open Search", ["halcyon-search"])], "start"),
         ("keys", "input-keyboard", "Learn the keyboard shortcuts",
          "Super+K shows every Halcyon shortcut: launching apps, moving windows, switching desktops and more.",
          [("Show shortcuts", ["halcyon-keys"])], "start"),

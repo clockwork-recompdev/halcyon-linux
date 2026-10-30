@@ -135,6 +135,9 @@ _launch=Meta+Ctrl+N
 [services][halcyon-key-power.desktop]
 _launch=Meta+Ctrl+P
 
+[services][halcyon-key-search.desktop]
+_launch=Meta+Ctrl+F
+
 [services][halcyon-key-web-calendar.desktop]
 _launch=Meta+Shift+C
 

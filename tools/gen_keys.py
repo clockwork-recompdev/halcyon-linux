@@ -89,6 +89,7 @@ BINDINGS = [
     ("System", ["Meta+Escape"], "System menu (log out / power)", ("kde", "ksmserver", "Log Out", ["Ctrl+Alt+Del"])),
     ("System", ["Meta+Ctrl+L"], "Lock system", ("kde", "ksmserver", "Lock Session", ["Screensaver"])),
     ("System", ["Meta+K"], "Show keybindings", ("cmd", "keys", "halcyon-keys")),
+    ("System", ["Meta+Ctrl+F"], "Search (programs, files, e-mail…)", ("cmd", "search", "halcyon-search")),
     ("System", ["Meta+`"], "Quake console", ("kde", "yakuake", "toggle-window-state", ["F12"])),
     ("System", ["Meta+Ctrl+V"], "Clipboard manager", ("kde", "plasmashell", "show-on-mouse-pos", ["Meta+V"])),
     ("System", ["Meta+Ctrl+E"], "Emojis", ("app", "org.kde.plasma.emojier.desktop", ["Meta+."])),

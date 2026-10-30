@@ -126,7 +126,7 @@ package() {
     for f in halcyon-install halcyon-mode halcyon-keys halcyon-gaming halcyon-dev \
              halcyon-disc-install halcyon-autoplay-dialog halcyon-aur halcyon-screensaver halcyon-player halcyon-wintheme halcyon-update \
              halcyon-games halcyon-osk halcyon-gadgets halcyon-messenger halcyon-mediacenter \
-             halcyon-navigator halcyon-welcome halcyon-mail halcyon-photos halcyon-calendar halcyon-notes; do
+             halcyon-navigator halcyon-welcome halcyon-mail halcyon-photos halcyon-calendar halcyon-notes halcyon-search; do
         install -Dm755 "$startdir/bin/$f" "$pkgdir/usr/bin/$f"
     done
     ln -s halcyon-navigator "$pkgdir/usr/bin/halcyon-retro-browser"    # its old name
@@ -159,6 +159,10 @@ package() {
     done
     install -Dm644 "$startdir/udev/70-halcyon-uinput.rules" "$pkgdir/usr/lib/udev/rules.d/70-halcyon-uinput.rules"
     install -Dm644 "$startdir/udev/halcyon-uinput.conf" "$pkgdir/usr/lib/modules-load.d/halcyon-uinput.conf"
+
+    # Halcyon Search
+    install -d "$share/halcyon-search/halcyon_search"
+    install -m644 "$startdir"/../search/halcyon_search/*.py "$share/halcyon-search/halcyon_search/"
 
     # Sticky Notes
     install -d "$share/halcyon-notes/halcyon_notes"

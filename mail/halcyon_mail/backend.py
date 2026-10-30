@@ -333,7 +333,10 @@ class Imap:
                               "(UID FLAGS INTERNALDATE RFC822.SIZE BODY.PEEK[HEADER.FIELDS "
                               "(FROM TO CC SUBJECT DATE CONTENT-TYPE MESSAGE-ID)])")
             return self._check(typ, data, "Couldn't read messages")
-        data = self.call(go)
+        return self._parse_headers(self.call(go))
+
+    @staticmethod
+    def _parse_headers(data):
         out, cur = [], None
         for item in data or []:
             if isinstance(item, tuple):
@@ -372,6 +375,28 @@ class Imap:
             })
         msgs.sort(key=lambda x: x["date"], reverse=True)
         return msgs
+
+    FIELDS = ("(UID FLAGS INTERNALDATE RFC822.SIZE BODY.PEEK[HEADER.FIELDS "
+              "(FROM TO CC SUBJECT DATE CONTENT-TYPE MESSAGE-ID)])")
+
+    def search(self, folder, text, limit=25):
+        """Messages whose subject or sender contains text (server-side), newest first."""
+        self.select(folder, readonly=True)
+        q = text.replace("\\", "").replace('"', "")
+
+        def go(c):
+            if q.isascii():
+                typ, data = c.uid("search", None, f'(OR SUBJECT "{q}" FROM "{q}")')
+            else:
+                c.literal = q.encode()
+                typ, data = c.uid("search", "CHARSET", "UTF-8", "SUBJECT")
+            uids = [int(u) for u in (data[0] or b"").split()] if typ == "OK" else []
+            uids = uids[-limit:]
+            if not uids:
+                return []
+            typ, data = c.uid("fetch", ",".join(map(str, uids)), self.FIELDS)
+            return self._check(typ, data, "Couldn't read messages")
+        return self._parse_headers(self.call(go))
 
     def body(self, folder, uid, mark_seen=True):
         self.select(folder)

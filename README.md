@@ -155,6 +155,10 @@ title in mpv, disc menus in VLC, eject). Keyboard, remote or gamepad.
   system keyring (`secret-tool`); pictures stay blocked until asked for; new mail notifies.
   **Contacts** (`~/.local/share/halcyon/contacts.json`): people you write to are added automatically;
   To/Cc/Bcc autocomplete and a contact picker; vCard (.vcf) import and export.
+- **Search** (`halcyon-search`, Super+Ctrl+F): Vista Search window - programs, files (Baloo when indexing
+  is on, otherwise a walk of the home folders), e-mail (server-side, via Halcyon Mail's accounts),
+  contacts, appointments, tasks and sticky notes, with All / E-mail / Document / Picture / Music / Other.
+  Results open in place (`halcyon-mail --open`, `halcyon-calendar --date`).
 - **Sticky Notes** (`halcyon-notes`): Windows 7-style notes - six colors, Ctrl+B/I/U/T and bullets,
   saved as you type to `~/.local/share/halcyon/sticky-notes.json` and reopened at logon. Runs on
   XWayland so notes keep their places.

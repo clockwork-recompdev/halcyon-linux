@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Search (programs, files, e-mail…)
+Exec=halcyon-search
+Icon=halcyon-logo
+NoDisplay=true
+X-KDE-Shortcuts=Meta+Ctrl+F

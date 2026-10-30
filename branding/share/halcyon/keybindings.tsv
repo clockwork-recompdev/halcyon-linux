@@ -73,6 +73,7 @@ System	Meta+Alt+Space	Apps menu
 System	Meta+Escape	System menu (log out / power)
 System	Meta+Ctrl+L	Lock system
 System	Meta+K	Show keybindings
+System	Meta+Ctrl+F	Search (programs, files, e-mail…)
 System	Meta+`	Quake console
 System	Meta+Ctrl+V	Clipboard manager
 System	Meta+Ctrl+E	Emojis

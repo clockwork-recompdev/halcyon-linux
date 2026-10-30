@@ -1203,7 +1203,15 @@ def main():
     app.setFont(f)
     w = Calendar()
     w.show()
-    arg = next((a for a in sys.argv[1:] if not a.startswith("--")), None)
+    if "--date" in sys.argv:                  # halcyon-calendar --date YYYY-MM-DD (from Halcyon Search)
+        try:
+            d = date.fromisoformat(sys.argv[sys.argv.index("--date") + 1][:10])
+            w.go(d)
+            w.set_mode("day")
+        except (IndexError, ValueError):
+            pass
+    arg = next((a for i, a in enumerate(sys.argv[1:], 1) if not a.startswith("--")
+                and sys.argv[i - 1] != "--date"), None)
     if arg:
         if arg.startswith(("webcal:", "webcals:")) or (arg.startswith("http") and ".ics" in arg):
             QTimer.singleShot(300, lambda: w.subscribe(arg))

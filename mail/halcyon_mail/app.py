@@ -740,6 +740,7 @@ class Mail(QMainWindow):
         self.last_uid = {}         # (acct id, folder) -> highest uid seen, for notifications
         self.cache = {}            # (acct, folder) -> messages
         self.opening = None
+        self.pending_open = None      # (account id, folder, uid) from `halcyon-mail --open`
 
         w = QWidget()
         self.setCentralWidget(w)
@@ -881,6 +882,13 @@ class Mail(QMainWindow):
             self.set_count(it, f, unseen)
             top.addChild(it)
         top.setExpanded(True)
+        if self.pending_open and self.pending_open[0] == aid:
+            it = self.folder_item(aid, self.pending_open[1])
+            if it is not None:
+                self.tree.setCurrentItem(it)
+                self.folder_clicked(it)
+                self.status.setText("")
+                return
         if self.current is None:
             inbox = next((top.child(i) for i in range(top.childCount())
                           if top.child(i).data(0, ROLE)[1].upper() == "INBOX"), None)
@@ -949,8 +957,18 @@ class Mail(QMainWindow):
         if self.current == (aid, name):
             keep = self.selected_uids()
             self.messages = msgs
+            want = self.pending_open
+            if want and want[:2] == (aid, name):
+                self.pending_open = None
+                keep = {want[2]}
             self.fill_list(keep)
             self.update_status()
+            if want and want[:2] == (aid, name):
+                idx = next((self.model.index(r, 0) for r in range(self.model.rowCount())
+                            if self.model.item(r).data(ROLE)["uid"] == want[2]), None)
+                if idx is not None:
+                    self.list.setCurrentIndex(idx)
+                    self.list.scrollTo(idx)
 
     def fill_list(self, keep=()):
         q = self.find.text().strip().lower()
@@ -1383,6 +1401,13 @@ def main():
         from urllib.parse import parse_qs
         q = parse_qs(url.query())
         Compose(w, w.cfg["accounts"][0], to=url.path(), subject=(q.get("subject") or [""])[0]).show()
+    # halcyon-mail --open ACCOUNT FOLDER UID: a message found by Halcyon Search
+    if "--open" in sys.argv:
+        i = sys.argv.index("--open")
+        try:
+            w.pending_open = (sys.argv[i + 1], sys.argv[i + 2], int(sys.argv[i + 3]))
+        except (IndexError, ValueError):
+            pass
     # halcyon-mail --attach FILE...: a new message with files attached (Photo Viewer's E-mail button)
     if "--attach" in sys.argv:
         files = [str(Path(f).resolve()) for f in sys.argv[sys.argv.index("--attach") + 1:]
