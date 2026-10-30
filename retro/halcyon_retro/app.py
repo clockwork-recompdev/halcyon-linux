@@ -15,9 +15,9 @@ CONFIG = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "hal
 DEFAULTS = {
     # Protoweb's current server list: https://protoweb.org/wiki/servers
     "proxy": "wayback.protoweb.org:7851",
-    "home": "http://www.yahoo.com/",
+    "home": "http://www.inode.com/",      # the iNode Gateway, Protoweb's start page
     "protoweb": True,
-    "favorites": [["Yahoo!", "http://www.yahoo.com/"]],
+    "favorites": [["iNode Gateway", "http://www.inode.com/"], ["Yahoo!", "http://www.yahoo.com/"]],
     "zoom": 1.0,
 }
 RUFFLE_DIRS = ("/usr/share/halcyon-retro/ruffle", str(Path(__file__).resolve().parent.parent / "ruffle"))
