@@ -61,9 +61,12 @@ class JellyfinSource:
 
     def _item(self, i):
         ud = i.get("UserData") or {}
-        kind = {"Movie": "movie", "Series": "series", "Season": "season", "Episode": "episode"}.get(i.get("Type"), "")
+        kind = {"Movie": "movie", "Series": "series", "Season": "season", "Episode": "episode",
+                "MusicAlbum": "album", "Audio": "track"}.get(i.get("Type"), "")
         tags = i.get("ImageTags") or {}
-        poster_id = i["Id"] if "Primary" in tags else (i.get("SeriesId") if kind in ("season", "episode") else None)
+        poster_id = i["Id"] if "Primary" in tags else (
+            i.get("SeriesId") if kind in ("season", "episode") else
+            (i.get("AlbumId") if kind == "track" and i.get("AlbumPrimaryImageTag") else None))
         backdrop_id = i["Id"] if i.get("BackdropImageTags") else (i.get("ParentBackdropItemId") or i.get("SeriesId"))
         return {
             "id": i["Id"], "source": self.name, "kind": kind, "title": i.get("Name", ""),
@@ -79,6 +82,8 @@ class JellyfinSource:
             "season_number": i.get("ParentIndexNumber"), "series": i.get("SeriesName", ""),
             "series_id": i.get("SeriesId"),
             "genres": i.get("Genres") or [], "added": _iso_time(i.get("DateCreated")),
+            "artist": i.get("AlbumArtist") or ", ".join(i.get("Artists") or []),
+            "album": i.get("Album", ""), "album_id": i.get("AlbumId"),
         }
 
     FIELDS = ("Overview,ProductionYear,RunTimeTicks,CommunityRating,OfficialRating,UserData,ImageTags,"
@@ -104,6 +109,27 @@ class JellyfinSource:
         d = self._req(f"/Users/{self.c.user_id}/Items/Resume", {"MediaTypes": "Video", "Limit": 16,
                                                                  "Fields": self.FIELDS})
         return [self._item(i) for i in d.get("Items", [])]
+
+    # --- music
+    def albums(self):
+        return self._items({"IncludeItemTypes": "MusicAlbum", "Recursive": "true", "SortBy": "SortName"})
+
+    def recent_albums(self):
+        d = self._req(f"/Users/{self.c.user_id}/Items/Latest", {"IncludeItemTypes": "MusicAlbum", "Limit": 16,
+                                                                 "Fields": self.FIELDS})
+        return [self._item(i) for i in d] if isinstance(d, list) else []
+
+    def tracks(self, album):
+        d = self._req(f"/Users/{self.c.user_id}/Items", {"ParentId": album["id"], "IncludeItemTypes": "Audio",
+                                                          "SortBy": "ParentIndexNumber,IndexNumber,SortName",
+                                                          "Fields": self.FIELDS + ",AlbumPrimaryImageTag"})
+        out = [self._item(i) for i in d.get("Items", [])]
+        for t in out:
+            t["poster"] = t["poster"] or album.get("poster")
+        return out
+
+    def audio_stream(self, track):
+        return f"{self.c.server}/Audio/{track['id']}/stream?static=true", self.c.mpv_headers()
 
     def seasons(self, series):
         d = self._req(f"/Shows/{series['id']}/Seasons", {"UserId": self.c.user_id, "Fields": self.FIELDS})
@@ -157,9 +183,10 @@ class PlexSource:
         return f"{self.c.server['uri']}/photo/:/transcode?{q}"
 
     def _item(self, i):
-        kind = {"movie": "movie", "show": "series", "season": "season", "episode": "episode"}.get(i.get("type"), "")
-        poster = i.get("thumb") if kind in ("movie", "series", "season") else (
-            i.get("grandparentThumb") or i.get("parentThumb"))
+        kind = {"movie": "movie", "show": "series", "season": "season", "episode": "episode",
+                "album": "album", "track": "track"}.get(i.get("type"), "")
+        poster = i.get("thumb") if kind in ("movie", "series", "season", "album") else (
+            i.get("parentThumb") if kind == "track" else (i.get("grandparentThumb") or i.get("parentThumb")))
         return {
             "id": i["ratingKey"], "source": self.name, "kind": kind, "title": i.get("title", ""),
             "year": i.get("year") or "", "overview": i.get("summary", ""),
@@ -172,6 +199,8 @@ class PlexSource:
             "season_number": i.get("parentIndex"), "series": i.get("grandparentTitle", ""),
             "series_id": i.get("grandparentRatingKey"),
             "genres": [g.get("tag") for g in i.get("Genre") or [] if g.get("tag")], "added": i.get("addedAt") or 0,
+            "artist": (i.get("parentTitle") if kind == "album" else i.get("grandparentTitle")) or "",
+            "album": i.get("parentTitle", "") if kind == "track" else "", "album_id": i.get("parentRatingKey"),
             "_part": ((i.get("Media") or [{}])[0].get("Part") or [{}])[0].get("key"),
         }
 
@@ -200,6 +229,30 @@ class PlexSource:
 
     def resume(self):
         return [self._item(i) for i in self._get("/library/onDeck").get("Metadata", [])][:16]
+
+    # --- music
+    def albums(self):
+        out = []
+        for key in self._sections("artist"):
+            out += [self._item(i) for i in self._get(f"/library/sections/{key}/albums").get("Metadata", [])]
+        return sorted(out, key=lambda x: x["title"].lower())
+
+    def recent_albums(self):
+        out = []
+        for key in self._sections("artist"):
+            out += [self._item(i) for i in self._get(f"/library/sections/{key}/recentlyAdded",
+                                                     {"type": 9, "X-Plex-Container-Size": 16,
+                                                      "X-Plex-Container-Start": 0}).get("Metadata", [])]
+        return out[:16]
+
+    def tracks(self, album):
+        out = [self._item(i) for i in self._get(f"/library/metadata/{album['id']}/children").get("Metadata", [])]
+        for t in out:
+            t["poster"] = t["poster"] or album.get("poster")
+        return out
+
+    def audio_stream(self, track):
+        return self.stream(track)
 
     def seasons(self, series):
         return [self._item(i) for i in self._get(f"/library/metadata/{series['id']}/children").get("Metadata", [])]

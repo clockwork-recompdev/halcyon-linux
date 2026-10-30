@@ -24,7 +24,7 @@ from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest
 from PySide6.QtWidgets import (QApplication, QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit,
                                QMessageBox, QWidget)
 
-from . import sources as S
+from . import music as MU, pictures as PX, sources as S
 
 APP = "Halcyon Media Center"
 # Gallery sort row: label, key, newest/biggest first?
@@ -198,13 +198,24 @@ class MediaCenter(QWidget):
         self.img = Images(self)
         self.logo = halcyon_logo()
         self.sources = S.sources()
-        self.data = {"movies": [], "shows": [], "resume": [], "recent_movies": [], "recent_tv": []}
+        self.data = {"movies": [], "shows": [], "resume": [], "recent_movies": [], "recent_tv": [],
+                     "albums": [], "recent_albums": []}
+        self.music = MU.MusicPlayer()
+        self.thumbs = PX.Thumbnails(self)
+        self.thumbs.ready.connect(lambda _p: self.update())
+        self._music_poll = QTimer(self, interval=500, timeout=self._poll_music)
+        self._music_poll.start()
+        self.album, self.tracks, self.track = None, [], 0
+        self.folder = None                     # picture folder being shown
+        self.slides, self.slide = [], 0        # slideshow pictures and position
+        self._slide_timer = QTimer(self, interval=6000, timeout=lambda: self.next_slide(1, auto=True))
+        self.slide_paused = False
         self.loading = True
         self.error = ""
         self.stack = []                 # screens to go back to
         self.screen = "start"
         self.menu = 2                   # start menu row (movies)
-        self.tile = {0: 0, 1: 0, 2: 0, 3: 0}  # focused tile per row
+        self.tile = {i: 0 for i in range(6)}  # focused tile per row
         self.grid = 0                   # focus in a poster gallery
         self.items = []                 # what the gallery shows
         self.title = ""
@@ -263,8 +274,13 @@ class MediaCenter(QWidget):
             for s in srcs:
                 for key, fn in (("movies", s.movies), ("shows", s.shows), ("resume", s.resume),
                                 ("recent_movies", lambda s=s: s.recent("movie")),
-                                ("recent_tv", lambda s=s: s.recent("episode"))):
-                    for it in fn():
+                                ("recent_tv", lambda s=s: s.recent("episode")),
+                                ("albums", s.albums), ("recent_albums", s.recent_albums)):
+                    try:
+                        found = fn()
+                    except S.SourceError:
+                        found = []
+                    for it in found:
                         it["_src"] = s
                         out[key].append(it)
             return out
@@ -293,7 +309,12 @@ class MediaCenter(QWidget):
         movies += [(i["title"], i, "item") for i in self.data["recent_movies"][:8]]
         tasks = [("settings", None, "settings"), ("refresh", None, "refresh"), ("close", None, "close")]
         library = [("all media", None, "all"), ("movie library", None, "movies"), ("tv library", None, "tv")]
-        return [("library", library), ("tv", tv), ("movies", movies), ("tasks", tasks)]
+        music = ([("now playing", self.music.current, "nowplaying")] if self.music.active else [])
+        music += [("music library", None, "music")]
+        music += [(i["title"], i, "item") for i in self.data["recent_albums"][:10]]
+        pictures = [("picture library", None, "pictures"), ("play slide show", None, "slideshow")]
+        return [("library", library), ("tv", tv), ("movies", movies), ("music", music),
+                ("pictures", pictures), ("tasks", tasks)]
 
     # --- navigation
     def sound(self, name):
@@ -315,12 +336,16 @@ class MediaCenter(QWidget):
 
     def _state(self):
         return dict(screen=self.screen, items=self.items, title=self.title, grid=self.grid, pivot=self.pivot,
+                    album=self.album, tracks=self.tracks, track=self.track, folder=self.folder,
                     series=self.series, seasons=self.seasons, season=self.season, episodes=self.episodes,
                     ep=self.ep, detail=self.detail, button=self.button)
 
     def back(self):
         if not self.stack:
             return
+        if self.screen == "slideshow":
+            self._slide_timer.stop()
+            self.message = ""
         self.sound("back")
         st = self.stack.pop()
         self._from = self.content_layer()
@@ -359,7 +384,7 @@ class MediaCenter(QWidget):
         now = time.monotonic()
         busy = any(d > 0 and now - t0 < d for _f, _t, t0, d in self.smooth.values())
         self.update()
-        if not busy:
+        if not busy and self.screen != "slideshow":
             self._frame.stop()
 
     def _tick(self, v):
@@ -411,6 +436,19 @@ class MediaCenter(QWidget):
             if dy and self.episodes:
                 n = max(0, min(len(self.episodes) - 1, self.ep + dy))
                 moved, self.ep = n != self.ep, n
+        elif sc == "album" and self.tracks:
+            n = max(0, min(len(self.tracks) - 1, self.track + (dy or dx)))
+            moved, self.track = n != self.track, n
+        elif sc == "nowplaying":
+            if dx > 0:
+                self.music.next()
+            elif dx < 0:
+                self.music.previous()
+            moved = bool(dx)
+        elif sc == "slideshow":
+            if dx or dy:
+                self.next_slide(1 if (dx or dy) > 0 else -1)
+                moved = True
         elif sc == "details":
             n = max(0, min(len(self.buttons()) - 1, self.button + (dy or dx)))
             moved, self.button = n != self.button, n
@@ -441,10 +479,13 @@ class MediaCenter(QWidget):
         if self.screen == "series" and self.episodes:
             vis = 8
             self.ease_to("epscroll", max(0, min(self.ep - vis // 2, len(self.episodes) - vis)))
+        if self.screen == "album" and self.tracks:
+            vis = 9
+            self.ease_to("trackscroll", max(0, min(self.track - vis // 2, len(self.tracks) - vis)))
 
     def snap_scrolls(self):
         """Jump (no glide) to where the focus is, e.g. after going back."""
-        for k in ("menu", "gscroll", "epscroll", "strip0", "strip1", "strip2", "strip3"):  # not "intro"
+        for k in ("menu", "gscroll", "epscroll", "trackscroll") + tuple(f"strip{i}" for i in range(6)):
             self.smooth.pop(k, None)
         self.follow()
         for v in self.smooth.values():
@@ -457,7 +498,13 @@ class MediaCenter(QWidget):
 
     def grid_cols_visible(self):
         H = self.height()
-        return max(1, int((self.width() * 0.88) // (H * 0.19 * self.POSTER + H * 0.018)))
+        return max(1, int((self.width() * 0.88) // (H * 0.19 * self.aspect() + H * 0.018)))
+
+    def aspect(self):
+        """Cover shape in the gallery: square for albums and pictures, 2:3 for posters."""
+        if self.items and self.items[0].get("kind") in ("album", "picture", "folder"):
+            return 1.0
+        return self.POSTER
 
     def set_pivot(self, n):
         items = self.view_items()
@@ -491,6 +538,15 @@ class MediaCenter(QWidget):
             self.open_item(self.view_items()[self.grid])
         elif sc == "series" and self.episodes:
             self.open_item(self.episodes[self.ep])
+        elif sc == "album" and self.tracks:
+            self.play_tracks(self.track)
+        elif sc == "nowplaying":
+            self.music.toggle_pause()
+            self.update()
+        elif sc == "slideshow":
+            self.slide_paused = not self.slide_paused
+            self.message = "Slide show paused" if self.slide_paused else ""
+            self.update()
         elif sc == "details":
             self.buttons()[self.button][1]()
         elif sc == "settings":
@@ -507,6 +563,19 @@ class MediaCenter(QWidget):
         elif action == "all":
             self.items, self.title, self.grid = self.data["movies"] + self.data["shows"], "all media", 0
             self.go("gallery")
+        elif action == "music":
+            self.items, self.title, self.grid = self.data["albums"], "music library", 0
+            self.go("gallery")
+        elif action == "nowplaying":
+            self.go("nowplaying")
+        elif action == "pictures":
+            self.open_folder(PX.pictures_dir())
+        elif action == "slideshow":
+            pics = PX.all_pictures(PX.pictures_dir())
+            if pics:
+                self.start_slideshow(pics, 0)
+            else:
+                self.message = "No pictures in your Pictures folder yet."
         elif action == "item":
             self.open_item(item)
         elif action == "settings":
@@ -518,6 +587,22 @@ class MediaCenter(QWidget):
 
     def open_item(self, item):
         self.sound("select")
+        if item["kind"] == "album":
+            self.album, self.tracks, self.track = item, [], 0
+            self.go("album")
+            src = item["_src"]
+            job = Job(lambda: src.tracks(item), self)
+            job.done.connect(self._tracks)
+            job.start()
+            self._track_job = job
+            return
+        if item["kind"] == "folder":
+            self.open_folder(item["path"])
+            return
+        if item["kind"] == "picture":
+            pics = [Path(i["path"]) for i in self.view_items() if i["kind"] == "picture"]
+            self.start_slideshow(pics, pics.index(Path(item["path"])) if Path(item["path"]) in pics else 0)
+            return
         if item["kind"] == "series":
             self.series, self.seasons, self.season, self.episodes, self.ep = item, [], 0, [], 0
             self.go("series")
@@ -529,6 +614,64 @@ class MediaCenter(QWidget):
         else:
             self.detail = item
             self.go("details")
+
+    # --- music
+    def _tracks(self, tracks, err):
+        self.tracks = tracks or []
+        for t in self.tracks:
+            t["_src"] = self.album["_src"]
+        self.update()
+
+    def play_tracks(self, start):
+        if not self.tracks:
+            return
+        try:
+            self.music.play(self.tracks, start)
+        except Exception as e:          # mpv missing, server gone…
+            self.message = f"Couldn't play: {e}"
+            return
+        self.sound("launch")
+        self.go("nowplaying")
+
+    def _poll_music(self):
+        if self.music.active and (self.music.poll() or self.screen in ("nowplaying", "start")):
+            self.update()
+
+    # --- pictures
+    def open_folder(self, folder):
+        folder = Path(folder)
+        items = []
+        for kind, path in PX.listing(folder):
+            try:
+                added = path.stat().st_mtime
+            except OSError:
+                added = 0
+            items.append({"kind": kind, "title": path.name if kind == "folder" else path.stem, "path": str(path),
+                          "added": added, "year": "", "rating": "", "minutes": 0, "genres": [],
+                          "cover": str(PX.first_picture(path) or "") if kind == "folder" else str(path)})
+        self.items, self.grid, self.folder = items, 0, folder
+        self.title = "picture library" if folder == PX.pictures_dir() else folder.name.lower()
+        self.go("gallery")
+
+    def start_slideshow(self, pics, start):
+        self.slides, self.slide = list(pics), start
+        self.slide_paused = False
+        self.smooth["slidefade"] = [1.0, 1.0, 0, 0]
+        self._slide_from = None
+        self._slide_t0 = time.monotonic()
+        self._slide_timer.start()
+        self.go("slideshow")
+
+    def next_slide(self, d, auto=False):
+        if self.screen != "slideshow" or not self.slides or (auto and self.slide_paused):
+            return
+        self._slide_from = (self.slide, self._slide_t0)
+        self.slide = (self.slide + d) % len(self.slides)
+        self._slide_t0 = time.monotonic()
+        self.smooth["slidefade"] = [0.0, 0.0, 0, 0]
+        self.ease_to("slidefade", 1.0, 1200)
+        self._slide_timer.start()       # restart the 6 s count
+        self._frame.start()
 
     def _seasons(self, seasons, err):
         self.seasons = seasons or []
@@ -817,9 +960,20 @@ class MediaCenter(QWidget):
             self.text(p, QRect(int(W * 0.05), int(H * 0.94), int(W * 0.9), int(H * 0.04)), msg,
                       font(H * 0.022), SOFT, Qt.AlignRight | Qt.AlignVCenter)
 
-    def poster(self, p, item, r, focused, label_below=False):
+    def art_pixmap(self, item, w, h):
+        """Cover art for an item: from its server, or a thumbnail of a local picture."""
+        local = item.get("cover") if item.get("kind") in ("picture", "folder") else None
+        if local:
+            img = self.thumbs.get(local, 320 if max(w, h) <= 320 else 640)
+            if img is None or img.isNull():
+                return None
+            pm = QPixmap.fromImage(img).scaled(w, h, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+            return pm.copy((pm.width() - w) // 2, (pm.height() - h) // 2, w, h)
         src = item.get("_src")
-        pm = self.img.get(item.get("poster"), src.image_headers() if src else None, r.width(), r.height())
+        return self.img.get(item.get("poster"), src.image_headers() if src else None, w, h)
+
+    def poster(self, p, item, r, focused, label_below=False):
+        pm = self.art_pixmap(item, r.width(), r.height())
         if pm is not None:
             p.drawPixmap(r.topLeft(), pm)
         else:
@@ -829,6 +983,11 @@ class MediaCenter(QWidget):
             p.fillRect(r, g)
             self.text(p, r.adjusted(8, 8, -8, -8), item.get("title", ""), font(r.height() * 0.08), SOFT,
                       Qt.AlignCenter | Qt.TextWordWrap)
+        if item.get("kind") == "folder":
+            band = QRect(r.left(), r.bottom() - int(r.height() * 0.26), r.width(), int(r.height() * 0.26))
+            p.fillRect(band, QColor(0, 20, 50, 170))
+            self.text(p, band.adjusted(6, 0, -6, 0), item["title"], font(r.height() * 0.1, QFont.Normal), WHITE,
+                      Qt.AlignCenter)
         if item.get("played"):
             p.setPen(Qt.NoPen)
             p.setBrush(QColor(0, 0, 0, 120))
@@ -881,6 +1040,9 @@ class MediaCenter(QWidget):
         p.setRenderHint(QPainter.SmoothPixmapTransform)
         self.hits = []
         W, H = self.width(), self.height()
+        if self.screen == "slideshow" and (self._from is None or self.trans >= 1):
+            self.paint_slideshow(p, W, H)
+            return
         self.background(p, W, H)
         if self._from is not None and self.trans < 1:
             # Media Center's zoom: going in, the old screen swells and fades while
@@ -933,16 +1095,24 @@ class MediaCenter(QWidget):
         for k, it in enumerate(items[:cols * rows]):
             cell = QRect(int(r.x() + (k % cols) * cw) + 1, int(r.y() + (k // cols) * ch) + 1,
                          int(cw) - 2, int(ch) - 2)
-            src = it.get("_src")
-            pm = self.img.get(it.get("poster"), src.image_headers() if src else None, cell.width(), cell.height())
+            pm = self.art_pixmap(it, cell.width(), cell.height())
             if pm is not None:
                 p.drawPixmap(cell.topLeft(), pm)
             else:
                 p.fillRect(cell, QColor(60, 110, 190, 120))
 
+    def _recent_pictures(self):
+        if getattr(self, "_recent_pics", None) is None:
+            self._recent_pics = [{"kind": "picture", "cover": str(pth), "path": str(pth), "title": pth.stem}
+                                 for pth in PX.all_pictures(PX.pictures_dir(), 24)]
+        return self._recent_pics
+
     def library_items(self, action):
         return {"movies": self.data["movies"], "tv": self.data["shows"],
-                "all": self.data["movies"][:6] + self.data["shows"][:6]}.get(action, [])
+                "all": self.data["movies"][:6] + self.data["shows"][:6],
+            "music": self.data["albums"][:12],
+            "pictures": self._recent_pictures(), "slideshow": self._recent_pictures()[6:] or self._recent_pictures(),
+            "nowplaying": [self.music.current] if self.music.current else []}.get(action, [])
 
     def paint_start(self, p, W, H):
         rows = self.rows()
@@ -1068,14 +1238,14 @@ class MediaCenter(QWidget):
         # Covers along the bottom, fading out to the right.
         covers = self.library_items(action) if item is None else [item]
         ch = int(r.height() * 0.36)
-        cw = int(ch * self.POSTER)
+        cw = int(ch * (1.0 if action in ("music", "pictures", "slideshow", "nowplaying") or
+                       (item or {}).get("kind") in ("album", "track") else self.POSTER))
         cx = r.x() + int(r.width() * 0.07)
         cy = r.y() + int(r.height() * 0.48)
         n = max(1, (r.width() - int(r.width() * 0.1)) // (cw + 4))
         for k, it in enumerate(covers[:n]):
             p.setOpacity(1.0 if k < n - 2 else (0.55 if k == n - 2 else 0.25))
-            src = it.get("_src")
-            pm = self.img.get(it.get("poster"), src.image_headers() if src else None, cw, ch)
+            pm = self.art_pixmap(it, cw, ch)
             cell = QRect(cx + k * (cw + 4), cy, cw, ch)
             if pm is not None:
                 p.drawPixmap(cell.topLeft(), pm)
@@ -1117,7 +1287,7 @@ class MediaCenter(QWidget):
             return
         rows = self.grid_rows()
         ph = int(H * 0.19)
-        pw = int(ph * self.POSTER)
+        pw = int(ph * self.aspect())
         gap = int(H * 0.018)
         y0 = int(H * 0.25)
         scroll = self.val("gscroll")
@@ -1283,6 +1453,143 @@ class MediaCenter(QWidget):
             self.tile_box(p, r, label, foc)
             self.hit(r, lambda i=i: (setattr(self, "button", i), self.activate()))
 
+    def paint_album(self, p, W, H):
+        a = self.album or {}
+        x0 = int(W * 0.08)
+        side = int(H * 0.42)
+        ar = QRect(x0, int(H * 0.2), side, side)
+        self.poster(p, a, ar, False)
+        self.glow_text(p, QRect(x0, ar.bottom() + int(H * 0.02), side + int(W * 0.1), int(H * 0.05)), a.get("title", ""),
+                       font(H * 0.034, QFont.DemiBold), WHITE, glow=60)
+        self.text(p, QRect(x0, ar.bottom() + int(H * 0.07), side + int(W * 0.1), int(H * 0.04)),
+                  " · ".join(str(v) for v in (a.get("artist"), a.get("year")) if v), font(H * 0.026), SOFT)
+        x = ar.right() + int(W * 0.05)
+        self.glow_text(p, QRect(x, int(H * 0.12), W - x - int(W * 0.06), int(H * 0.07)), "songs",
+                       font(H * 0.05, QFont.Light), WHITE, glow=60)
+        if not self.tracks:
+            self.text(p, QRect(x, int(H * 0.22), int(W * 0.5), int(H * 0.05)), "Loading…", font(H * 0.03), SOFT)
+            return
+        rh = int(H * 0.058)
+        vis = 9
+        scroll = self.val("trackscroll", max(0, min(self.track - vis // 2, len(self.tracks) - vis)))
+        top = int(H * 0.2)
+        p.save()
+        p.setClipRect(QRect(x - 6, top - 4, W - x, vis * rh + 8))
+        playing = self.music.current
+        for i in range(max(0, int(scroll)), min(len(self.tracks), int(scroll) + vis + 1)):
+            t = self.tracks[i]
+            y = int(top + (i - scroll) * rh)
+            r = QRect(x, y, W - x - int(W * 0.08), rh)
+            foc = i == self.track
+            if foc:
+                g = QLinearGradient(0, r.top(), 0, r.bottom())
+                g.setColorAt(0, QColor(120, 190, 255, 90))
+                g.setColorAt(1, QColor(60, 130, 230, 60))
+                p.setPen(QPen(QColor(170, 220, 255, 200), 1))
+                p.setBrush(g)
+                p.drawRoundedRect(QRectF(r), 4, 4)
+            now = playing is not None and playing.get("id") == t.get("id")
+            self.text(p, r.adjusted(int(W * 0.01), 0, 0, 0), "♪" if now else (f"{t['number']}" if t.get("number") else ""),
+                      font(rh * 0.42), GLOW if now else DIM)
+            self.text(p, r.adjusted(int(W * 0.045), 0, -int(W * 0.1), 0), t["title"], font(rh * 0.45),
+                      WHITE if foc or now else SOFT)
+            self.text(p, r.adjusted(0, 0, -int(W * 0.012), 0), clock(t.get("duration") or 0), font(rh * 0.38), DIM,
+                      Qt.AlignRight | Qt.AlignVCenter)
+            self.hit(r, lambda i=i: (self.play_tracks(i) if i == self.track else (setattr(self, "track", i), self.update())))
+        p.restore()
+
+    def paint_nowplaying(self, p, W, H):
+        m = self.music
+        t = m.current
+        self.glow_text(p, QRect(int(W * 0.08), int(H * 0.1), int(W * 0.6), int(H * 0.08)), "now playing",
+                       font(H * 0.055, QFont.Light), WHITE, glow=60)
+        if t is None:
+            self.text(p, QRect(int(W * 0.08), int(H * 0.3), int(W * 0.8), int(H * 0.05)),
+                      "Nothing is playing. Pick an album in the music library.", font(H * 0.03), SOFT)
+            return
+        side = int(H * 0.5)
+        ar = QRect(int(W * 0.08), int(H * 0.22), side, side)
+        # Soft reflection under the cover, Media Center style.
+        pm = self.art_pixmap(t, side, side)
+        if pm is not None:
+            p.drawPixmap(ar.topLeft(), pm)
+            from PySide6.QtGui import QTransform
+            refl = pm.transformed(QTransform().scale(1, -1))
+            p.save()
+            p.setOpacity(0.18)
+            p.drawPixmap(QRect(ar.left(), ar.bottom() + 4, side, int(side * 0.25)), refl,
+                         QRect(0, 0, side, int(side * 0.25)))
+            p.restore()
+        else:
+            self.poster(p, t, ar, False)
+        x = ar.right() + int(W * 0.05)
+        w = W - x - int(W * 0.08)
+        self.glow_text(p, QRect(x, int(H * 0.26), w, int(H * 0.08)), t["title"], font(H * 0.05, QFont.DemiBold), WHITE,
+                       glow=80)
+        self.text(p, QRect(x, int(H * 0.34), w, int(H * 0.05)), t.get("artist") or "", font(H * 0.034), SOFT)
+        self.text(p, QRect(x, int(H * 0.39), w, int(H * 0.045)), t.get("album") or "", font(H * 0.028), DIM)
+        # Progress bar and times.
+        by = int(H * 0.48)
+        frac = (m.position / m.duration) if m.duration else 0
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(255, 255, 255, 40))
+        p.drawRoundedRect(QRectF(x, by, w, H * 0.008), 3, 3)
+        g = QLinearGradient(x, 0, x + w, 0)
+        g.setColorAt(0, QColor(110, 200, 255))
+        g.setColorAt(1, QColor(170, 230, 255))
+        p.setBrush(g)
+        p.drawRoundedRect(QRectF(x, by, w * max(0.0, min(1.0, frac)), H * 0.008), 3, 3)
+        self.text(p, QRect(x, by + int(H * 0.015), w, int(H * 0.035)), clock(m.position), font(H * 0.022), SOFT)
+        self.text(p, QRect(x, by + int(H * 0.015), w, int(H * 0.035)), clock(m.duration), font(H * 0.022), SOFT,
+                  Qt.AlignRight | Qt.AlignVCenter)
+        self.text(p, QRect(x, by + int(H * 0.06), w, int(H * 0.045)),
+                  "❚❚ paused" if m.paused else "▶ playing", font(H * 0.026, QFont.Normal), GLOW)
+        # Up next.
+        nxt = m.queue[m.index + 1:m.index + 5]
+        if nxt:
+            self.text(p, QRect(x, int(H * 0.62), w, int(H * 0.04)), "up next", font(H * 0.026, QFont.Normal), DIM)
+            for k, n in enumerate(nxt):
+                self.text(p, QRect(x, int(H * 0.665 + k * H * 0.045), w, int(H * 0.04)), n["title"],
+                          font(H * 0.026), QColor(200, 220, 240, 200 - k * 35))
+        self.text(p, QRect(int(W * 0.08), int(H * 0.88), int(W * 0.84), int(H * 0.04)),
+                  "Enter: play/pause   ←/→: previous/next   Esc: back (music keeps playing)",
+                  font(H * 0.02), DIM)
+
+    def paint_slideshow(self, p, W, H):
+        p.fillRect(self.rect(), Qt.black)
+        if not self.slides:
+            return
+        size = max(W, H)
+
+        def draw(idx, t0, alpha):
+            img = self.thumbs.get(self.slides[idx], size)
+            if img is None or img.isNull():
+                return False
+            # Slow pan and zoom over the 6 seconds a picture is shown.
+            k = min(1.0, (time.monotonic() - t0) / 7.0)
+            scale = 1.0 + 0.07 * k
+            iw, ih = img.width(), img.height()
+            fit = min(W / iw, H / ih) * scale
+            dw, dh = iw * fit, ih * fit
+            dx = (W - dw) / 2 + (W * 0.02) * (k - 0.5) * (1 if idx % 2 else -1)
+            dy = (H - dh) / 2
+            p.setOpacity(alpha)
+            p.drawImage(QRectF(dx, dy, dw, dh), img)
+            p.setOpacity(1)
+            return True
+        fade = self.val("slidefade", 1.0)
+        if fade < 1 and getattr(self, "_slide_from", None):
+            draw(self._slide_from[0], self._slide_from[1], 1.0)
+        if not draw(self.slide, self._slide_t0, fade):
+            self.text(p, self.rect(), "Loading…", font(H * 0.03), SOFT, Qt.AlignCenter)
+        # Preload the next picture.
+        self.thumbs.get(self.slides[(self.slide + 1) % len(self.slides)], size)
+        if not self._frame.isActive():
+            self._frame.start()          # keep the pan moving
+        if self.slide_paused:
+            self.text(p, QRect(0, int(H * 0.9), W, int(H * 0.05)), "❚❚  paused", font(H * 0.03, QFont.Normal), WHITE,
+                      Qt.AlignCenter)
+
     def paint_settings(self, p, W, H):
         self.text(p, QRect(int(W * 0.08), int(H * 0.1), int(W * 0.8), int(H * 0.09)), "settings",
                   font(H * 0.06), WHITE, glow=True)
@@ -1290,6 +1597,10 @@ class MediaCenter(QWidget):
             r = QRect(int(W * 0.08), int(H * 0.25) + i * int(H * 0.09), int(W * 0.4), int(H * 0.07))
             self.tile_box(p, r, label, i == self.button)
             self.hit(r, lambda i=i: (setattr(self, "button", i), self.activate()))
+
+
+def _stop_music_on_exit(w):
+    w.music.stop()
 
 
 def use_segoe():
@@ -1320,6 +1631,7 @@ def main():
     # Keep the ribbons drifting.
     t = QTimer(w, interval=80, timeout=w.update)
     t.start()
+    app.aboutToQuit.connect(lambda: _stop_music_on_exit(w))
     return app.exec()
 
 
