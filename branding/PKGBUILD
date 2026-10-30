@@ -1,6 +1,6 @@
 # Local package: built straight from this directory by ../build.sh.
 pkgname=halcyon-branding
-pkgver=2026.10.30.0315
+pkgver=2026.10.30.0323
 pkgrel=1
 pkgdesc="Halcyon Linux Frutiger Aero theme: Plasma style, window decoration, SDDM, Plymouth, defaults"
 arch=(any)
