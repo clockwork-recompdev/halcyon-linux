@@ -163,7 +163,12 @@ class SkinWindow(QWidget):
             self.resize(self.view.size())
         self._frame = self.view.render()
         if not video_only:           # the shape doesn't change frame to frame
-            self.setMask(self.view.window_mask(self._frame))
+            # Re-shaping a window is slow on a real display; only do it when the
+            # outline actually changed (Half-Life 2's shutter animates inside it).
+            mask = self.view.window_mask(self._frame)
+            if mask != getattr(self, "_mask", None):
+                self._mask = mask
+                self.setMask(mask)
         self.update()
 
     def video_areas(self):

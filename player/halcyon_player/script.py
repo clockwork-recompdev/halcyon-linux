@@ -77,8 +77,16 @@ var event = {keyCode: 0, x: 0, y: 0, offsetX: 0, offsetY: 0, button: 0,
              shiftKey: false, ctrlKey: false, altKey: false, returnValue: true, cancelBubble: false};
 function __run(ctxId, viewId, code, newState) {
     var NewState = newState;
-    var view = __wrap(viewId);          // "view" means the event's own window
-    with (__wrap(ctxId)) { return eval(code); }
+    // "view" means the event's own window, also inside the skin's global
+    // functions (Halo 2's introStart() sets view.timerInterval = 0 to stop its
+    // intro; with the wrong view that hit another window and the intro looped).
+    var saved = view;
+    view = __wrap(viewId);
+    try {
+        with (__wrap(ctxId)) { return eval(code); }
+    } finally {
+        view = saved;
+    }
 }
 """
 
