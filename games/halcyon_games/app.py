@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (QApplication, QFileDialog, QFrame, QHBoxLayout, Q
                                QLineEdit, QMenu, QMessageBox, QPushButton, QSizeGrip, QStackedWidget, QTabBar,
                                QToolButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
-from . import library, sfx, sgdb, style
+from . import controller, library, sfx, sgdb, style
 
 try:
     from .gamepad import Gamepads
@@ -318,6 +318,8 @@ class DesktopView(QWidget):
                             lambda: QProcess.startDetached("xdg-open", [g.folder]))
             if g.source == "Windows":
                 m.addAction("Find patches…", lambda: self.l.find_patches(g))
+            if g.source != "Steam":
+                m.addAction("Controller…", lambda: self.l.controller_dialog(g))
             m.addSeparator()
             if g.id.startswith("custom:"):
                 m.addAction("Rename…", lambda: self.l.rename(g))
@@ -1470,10 +1472,66 @@ class Launcher(QWidget):
             return
         g.last_played = int(time.time())
         self.cfg["played"][g.id] = g.last_played
+        # Games without controller support get keyboard/mouse from the pad (Steam Input style).
+        controller.start_for(g, self.cfg, _pid, self.save)
         self.save()
         self.desktop.status.setText(f"Starting {g.name}…")
         self.desktop.details.set_game(self.desktop.current())
         self.big.update()
+
+    def controller_dialog(self, g):
+        from PySide6.QtWidgets import QComboBox, QDialog, QDialogButtonBox, QGridLayout
+        d = QDialog(self)
+        d.setWindowTitle(f"Controller: {g.name}")
+        lay = QVBoxLayout(d)
+        info = self.cfg.get("controller_info", {}).get(g.id)
+        if info and info.get("page"):
+            sup = {"false": "no controller support", "limited": "limited controller support",
+                   "true": "full controller support"}.get(info.get("support"), "unknown controller support")
+            auto = controller.auto_layout(info)
+            note = (f"PCGamingWiki: {sup} ({', '.join(info.get('genres', [])) or 'genre unknown'}).\n"
+                    f"Automatic uses: {auto.title() + ' layout' if auto else 'no mapping'}.")
+        else:
+            note = "Automatic looks the game up on PCGamingWiki the first time you play it."
+        lay.addWidget(QLabel(note, wordWrap=True))
+        combo = QComboBox()
+        labels = {"auto": "Automatic", "action": "Action (WASD + mouse look)",
+                  "mouse": "Mouse (stick moves the pointer)", "off": "Off (the game reads the controller)"}
+        for c in controller.CHOICES:
+            combo.addItem(labels[c], c)
+        cur = self.cfg.get("controller", {}).get(g.id, "auto")
+        combo.setCurrentIndex(controller.CHOICES.index(cur))
+        lay.addWidget(combo)
+        table = QWidget()
+        grid = QGridLayout(table)
+        lay.addWidget(table)
+
+        def show():
+            while grid.count():
+                grid.takeAt(0).widget().deleteLater()
+            c = combo.currentData()
+            layout = c if c in ("action", "mouse") else controller.auto_layout(info) if c == "auto" else None
+            if not layout:
+                grid.addWidget(QLabel("No mapping: the game gets the controller as it is."), 0, 0)
+                return
+            try:
+                from .padmap import describe
+            except ImportError:
+                grid.addWidget(QLabel("Controller mapping needs python-evdev."), 0, 0)
+                return
+            for i, (btn, what) in enumerate(describe(layout)):
+                grid.addWidget(QLabel(f"<b>{btn}</b>"), i // 2, (i % 2) * 2)
+                grid.addWidget(QLabel(what), i // 2, (i % 2) * 2 + 1)
+        combo.currentIndexChanged.connect(lambda _i: show())
+        show()
+        lay.addWidget(QLabel("While playing: Guide + Back turns the mapping off and on.", objectName="gameinfo"))
+        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb.accepted.connect(d.accept)
+        bb.rejected.connect(d.reject)
+        lay.addWidget(bb)
+        if d.exec() == QDialog.Accepted:
+            self.cfg.setdefault("controller", {})[g.id] = combo.currentData()
+            self.save()
 
     def find_patches(self, g, auto=False):
         from .patchui import PatchDialog
