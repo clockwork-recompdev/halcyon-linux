@@ -24,7 +24,7 @@ from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest
 from PySide6.QtWidgets import (QApplication, QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit,
                                QMessageBox, QWidget)
 
-from . import music as MU, pictures as PX, sources as S
+from . import discs as DX, music as MU, pictures as PX, sources as S
 
 APP = "Halcyon Media Center"
 # Gallery sort row: label, key, newest/biggest first?
@@ -210,6 +210,10 @@ class MediaCenter(QWidget):
         self.slides, self.slide = [], 0        # slideshow pictures and position
         self._slide_timer = QTimer(self, interval=6000, timeout=lambda: self.next_slide(1, auto=True))
         self.slide_paused = False
+        self.discs, self.disc = [], None       # movie discs in the drives; the one on the disc page
+        self._disc_poll = QTimer(self, interval=3000, timeout=self._poll_discs)
+        self._disc_poll.start()
+        self._disc_proc = None
         self.loading = True
         self.error = ""
         self.stack = []                 # screens to go back to
@@ -304,7 +308,9 @@ class MediaCenter(QWidget):
         tv = [("tv library", None, "tv")]
         tv += [(f"{i['series'] or i['title']}", i, "item") for i in self.data["resume"] if i["kind"] == "episode"]
         tv += [(i["series"] or i["title"], i, "item") for i in self.data["recent_tv"][:8]]
-        movies = [("movie library", None, "movies")]
+        movies = [(("play blu-ray" if d["kind"] == "bluray" else "play dvd"),
+                   {"kind": "disc", "title": d["label"], "disc": d}, "disc") for d in self.discs]
+        movies += [("movie library", None, "movies")]
         movies += [(i["title"], i, "item") for i in self.data["resume"] if i["kind"] == "movie"]
         movies += [(i["title"], i, "item") for i in self.data["recent_movies"][:8]]
         tasks = [("settings", None, "settings"), ("refresh", None, "refresh"), ("close", None, "close")]
@@ -338,7 +344,7 @@ class MediaCenter(QWidget):
         return dict(screen=self.screen, items=self.items, title=self.title, grid=self.grid, pivot=self.pivot,
                     album=self.album, tracks=self.tracks, track=self.track, folder=self.folder,
                     series=self.series, seasons=self.seasons, season=self.season, episodes=self.episodes,
-                    ep=self.ep, detail=self.detail, button=self.button)
+                    ep=self.ep, detail=self.detail, button=self.button, disc=self.disc)
 
     def back(self):
         if not self.stack:
@@ -449,6 +455,9 @@ class MediaCenter(QWidget):
             if dx or dy:
                 self.next_slide(1 if (dx or dy) > 0 else -1)
                 moved = True
+        elif sc == "disc":
+            n = max(0, min(len(self.disc_buttons()) - 1, self.button + (dy or dx)))
+            moved, self.button = n != self.button, n
         elif sc == "details":
             n = max(0, min(len(self.buttons()) - 1, self.button + (dy or dx)))
             moved, self.button = n != self.button, n
@@ -547,6 +556,8 @@ class MediaCenter(QWidget):
             self.slide_paused = not self.slide_paused
             self.message = "Slide show paused" if self.slide_paused else ""
             self.update()
+        elif sc == "disc":
+            self.disc_buttons()[self.button][1]()
         elif sc == "details":
             self.buttons()[self.button][1]()
         elif sc == "settings":
@@ -576,6 +587,9 @@ class MediaCenter(QWidget):
                 self.start_slideshow(pics, 0)
             else:
                 self.message = "No pictures in your Pictures folder yet."
+        elif action == "disc":
+            self.disc = item["disc"]
+            self.go("disc")
         elif action == "item":
             self.open_item(item)
         elif action == "settings":
@@ -652,6 +666,60 @@ class MediaCenter(QWidget):
         self.items, self.grid, self.folder = items, 0, folder
         self.title = "picture library" if folder == PX.pictures_dir() else folder.name.lower()
         self.go("gallery")
+
+    # --- movie discs
+    def _poll_discs(self):
+        found = DX.detect()
+        if [d["device"] + d["kind"] for d in found] != [d["device"] + d["kind"] for d in self.discs]:
+            new = [d for d in found if d["device"] not in {x["device"] for x in self.discs}]
+            self.discs = found
+            if new:
+                self.message = f"{new[0]['label']} is in the drive: Movies › play {'blu-ray' if new[0]['kind'] == 'bluray' else 'dvd'}"
+                self.sound("select")
+            self.update()
+
+    def disc_buttons(self):
+        d = self.disc
+        if not d:
+            return [("back", self.back)]
+        out = [("play movie", lambda: self.play_disc(False))]
+        if DX.can_show_menu():
+            out.append(("disc menu", lambda: self.play_disc(True)))
+        out += [("eject", lambda: (DX.eject(d), self.back())), ("back", self.back)]
+        return out
+
+    def play_disc(self, menu):
+        self.sound("launch")
+        self._disc_proc = DX.show_menu(self.disc) if menu else DX.play(self.disc)
+        self._disc_started = time.monotonic()
+        self.message = f"Playing {self.disc['label']}…"
+        self._disc_watch = QTimer(self, interval=1000, timeout=self._disc_done)
+        self._disc_watch.start()
+        self.update()
+
+    def _disc_done(self):
+        p = self._disc_proc
+        if p is None or p.poll() is None:
+            return
+        self._disc_watch.stop()
+        err = ""
+        if p.stderr is not None:
+            try:
+                err = p.stderr.read().decode(errors="replace").lower()
+            except (OSError, ValueError):
+                err = ""
+        if p.returncode and time.monotonic() - self._disc_started < 8:
+            if "aacs" in err or "bd+" in err:
+                self.message = "This Blu-ray is copy-protected (AACS), which Linux can't play without decryption keys."
+            elif "dvdcss" in err or "css" in err:
+                self.message = "This DVD couldn't be decrypted."
+            else:
+                self.message = "The disc couldn't be played."
+        else:
+            self.message = ""
+        self._disc_proc = None
+        self.activateWindow()
+        self.update()
 
     def start_slideshow(self, pics, start):
         self.slides, self.slide = list(pics), start
@@ -1236,6 +1304,12 @@ class MediaCenter(QWidget):
         self.glow_text(p, cap_r, QFontMetrics(cf).elidedText(caption, Qt.ElideLeft, cap_r.width()), cf, WHITE,
                        Qt.AlignRight | Qt.AlignVCenter, glow=90)
         # Covers along the bottom, fading out to the right.
+        if item is not None and item.get("kind") == "disc":
+            self.disc_glyph(p, QPointF(r.x() + r.width() * 0.2, r.y() + r.height() * 0.66), r.height() * 0.26)
+            self.text(p, QRect(int(r.x() + r.width() * 0.38), int(r.y() + r.height() * 0.5), int(r.width() * 0.58),
+                               int(r.height() * 0.3)), item["title"], font(H * 0.028), WHITE)
+            p.restore()
+            return
         covers = self.library_items(action) if item is None else [item]
         ch = int(r.height() * 0.36)
         cw = int(ch * (1.0 if action in ("music", "pictures", "slideshow", "nowplaying") or
@@ -1589,6 +1663,41 @@ class MediaCenter(QWidget):
         if self.slide_paused:
             self.text(p, QRect(0, int(H * 0.9), W, int(H * 0.05)), "❚❚  paused", font(H * 0.03, QFont.Normal), WHITE,
                       Qt.AlignCenter)
+
+    def disc_glyph(self, p, c, r):
+        """A shiny disc, drawn."""
+        g = QRadialGradient(c, r)
+        g.setColorAt(0, QColor(235, 245, 255))
+        g.setColorAt(0.25, QColor(150, 190, 230))
+        g.setColorAt(0.55, QColor(225, 235, 250))
+        g.setColorAt(0.8, QColor(140, 180, 225))
+        g.setColorAt(1, QColor(200, 220, 245))
+        p.setPen(QPen(QColor(255, 255, 255, 180), 1.5))
+        p.setBrush(g)
+        p.drawEllipse(c, r, r)
+        p.setBrush(QColor(20, 50, 90))
+        p.drawEllipse(c, r * 0.16, r * 0.16)
+        shine = QLinearGradient(c.x() - r, c.y() - r, c.x() + r, c.y() + r)
+        shine.setColorAt(0.3, QColor(255, 255, 255, 0))
+        shine.setColorAt(0.5, QColor(255, 255, 255, 110))
+        shine.setColorAt(0.7, QColor(255, 255, 255, 0))
+        p.setPen(Qt.NoPen)
+        p.setBrush(shine)
+        p.drawEllipse(c, r, r)
+
+    def paint_disc(self, p, W, H):
+        d = self.disc or {}
+        x0 = int(W * 0.08)
+        self.disc_glyph(p, QPointF(x0 + H * 0.2, H * 0.42), H * 0.19)
+        x = int(x0 + H * 0.45)
+        self.glow_text(p, QRect(x, int(H * 0.22), W - x - int(W * 0.06), int(H * 0.08)), d.get("label", "Movie disc"),
+                       font(H * 0.055, QFont.DemiBold), WHITE, glow=80)
+        self.text(p, QRect(x, int(H * 0.3), W - x, int(H * 0.04)),
+                  "Blu-ray disc" if d.get("kind") == "bluray" else "DVD", font(H * 0.03), SOFT)
+        for i, (label, _fn) in enumerate(self.disc_buttons()):
+            r = QRect(x, int(H * 0.4) + i * int(H * 0.075), int(W * 0.26), int(H * 0.06))
+            self.tile_box(p, r, label, i == self.button)
+            self.hit(r, lambda i=i: (setattr(self, "button", i), self.activate()))
 
     def paint_settings(self, p, W, H):
         self.text(p, QRect(int(W * 0.08), int(H * 0.1), int(W * 0.8), int(H * 0.09)), "settings",
