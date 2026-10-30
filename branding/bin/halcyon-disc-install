@@ -139,6 +139,9 @@ fi
 
 # Known-broken old installers: run a fixed copy of their MSI instead.
 if fixed=$(msi_quirk_fix "$mp" "$STATE/msi-fix"); then
+    # An earlier attempt may have left a half-finished install ("corrupted or
+    # missing files" on the next try): clear it first.
+    msi_clear_partial "$fixed"
     cmd=(wine msiexec /i "Z:${fixed//\//\\}")
     rel=.
 fi

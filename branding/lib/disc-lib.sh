@@ -118,3 +118,44 @@ msi_quirk_fix() {  # msi_quirk_fix DISC_ROOT WORKDIR: prints the patched MSI's p
     wineserver -w
     echo "$work/setup.msi"
 }
+
+msi_packed() {  # msi_packed {GUID}: Windows Installer's "packed" form used in registry keys
+    python3 -c '
+import sys
+g = sys.argv[1].strip("{}").replace("-", "")
+parts = [g[0:8][::-1], g[8:12][::-1], g[12:16][::-1]] + [g[i:i + 2][::-1] for i in range(16, 32, 2)]
+print("".join(parts).upper())' "$1"
+}
+
+msi_registered() {  # msi_registered {GUID} PACKED: is the product registered as installed?
+    # 32-bit installers register under Wow6432Node; "wine uninstaller --list" can miss them.
+    wine reg query "HKLM\\Software\\Classes\\Installer\\Products\\$2" >/dev/null 2>&1 ||
+        wine reg query "HKLM\\Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\$1" >/dev/null 2>&1 ||
+        wine reg query "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\$1" >/dev/null 2>&1
+}
+
+msi_clear_partial() {  # msi_clear_partial MSI: remove an earlier (possibly half-finished) install of this product
+    local msi=$1 code upgrade p u key
+    code=$(msiinfo export "$msi" Property 2>/dev/null | awk -F'\t' '$1 == "ProductCode" { sub(/\r$/, "", $2); print $2 }')
+    upgrade=$(msiinfo export "$msi" Property 2>/dev/null | awk -F'\t' '$1 == "UpgradeCode" { sub(/\r$/, "", $2); print $2 }')
+    [[ -n $code ]] || return 0
+    p=$(msi_packed "$code")
+    msi_registered "$code" "$p" || return 0
+    # A clean uninstall first; a half-finished install often can't (its cached
+    # package is what's broken), so then drop its registration by hand.
+    wine msiexec /x "$code" /qn >/dev/null 2>&1
+    wineserver -w
+    msi_registered "$code" "$p" || return 0
+    for key in "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\$code" \
+               "HKLM\\Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\$code" \
+               "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Installer\\UserData\\S-1-5-18\\Products\\$p" \
+               "HKLM\\Software\\Classes\\Installer\\Products\\$p" \
+               "HKCU\\Software\\Microsoft\\Installer\\Products\\$p"; do
+        wine reg delete "$key" /f >/dev/null 2>&1
+    done
+    if [[ -n $upgrade ]]; then
+        u=$(msi_packed "$upgrade")
+        wine reg delete "HKLM\\Software\\Classes\\Installer\\UpgradeCodes\\$u" /f >/dev/null 2>&1
+    fi
+    wineserver -w
+}
