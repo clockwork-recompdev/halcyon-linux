@@ -695,33 +695,72 @@ class MediaCenter(QWidget):
         p.drawText(rect, align, s)
 
     def background(self, p, W, H):
-        g = QRadialGradient(W * 0.5, H * 0.38, max(W, H) * 0.85)
-        g.setColorAt(0, QColor("#0f4296"))
-        g.setColorAt(0.45, QColor("#082a6a"))
-        g.setColorAt(1, QColor("#010a26"))
-        p.fillRect(self.rect(), g)
-        # Light ribbons sweeping across the lower half, the Media Center signature.
-        t = time.time() * 0.03
-        for k, (alpha, amp, y0, width) in enumerate(((50, 0.07, 0.72, 2.5), (34, 0.05, 0.78, 1.5),
-                                                     (24, 0.09, 0.84, 6.0), (16, 0.04, 0.66, 10.0))):
-            path = QPainterPath()
-            for i in range(0, 41):
-                x = W * i / 40
-                y = H * (y0 + amp * math.sin(i / 40 * math.pi * 1.6 + k * 1.3 + t))
-                path.moveTo(x, y) if i == 0 else path.lineTo(x, y)
-            grad = QLinearGradient(0, 0, W, 0)
-            grad.setColorAt(0, QColor(140, 210, 255, 0))
-            grad.setColorAt(0.5, QColor(170, 225, 255, alpha))
-            grad.setColorAt(1, QColor(140, 210, 255, 0))
-            p.setPen(QPen(grad, width * H / 900))
-            p.drawPath(path)
-        p.setPen(Qt.NoPen)
+        key = (W, H)
+        if getattr(self, "_bg_key", None) != key:
+            self._bg = self._render_background(W, H)
+            self._bg_key = key
+        p.drawPixmap(0, 0, self._bg)
+
+    @staticmethod
+    def _render_background(W, H):
+        """Navy at the top, brighter in the middle, soft wide beams rising from the
+        lower left and a glow at the lower right (measured from Media Center)."""
+        pm = QPixmap(W, H)
+        p = QPainter(pm)
+        p.setRenderHint(QPainter.Antialiasing)
+        g = QLinearGradient(0, 0, 0, H)
+        g.setColorAt(0, QColor(8, 22, 58))
+        g.setColorAt(0.45, QColor(7, 45, 100))
+        g.setColorAt(1, QColor(5, 36, 104))
+        p.fillRect(0, 0, W, H, g)
+        r = QRadialGradient(W * 0.56, H * 0.5, W * 0.55)
+        r.setColorAt(0, QColor(20, 80, 150, 150))
+        r.setColorAt(1, QColor(20, 80, 150, 0))
+        p.fillRect(0, 0, W, H, r)
+        # Beams: wide, soft-edged bands tilted up to the right.
+        for cx, width, alpha in ((0.30, 0.10, 22), (0.48, 0.16, 18), (0.66, 0.08, 26), (0.83, 0.14, 20),
+                                 (0.95, 0.06, 16)):
+            p.save()
+            p.translate(W * cx, H * 1.05)
+            p.rotate(28)
+            w = W * width
+            band = QLinearGradient(-w / 2, 0, w / 2, 0)
+            band.setColorAt(0, QColor(120, 200, 255, 0))
+            band.setColorAt(0.5, QColor(120, 200, 255, alpha))
+            band.setColorAt(1, QColor(120, 200, 255, 0))
+            fade = QLinearGradient(0, 0, 0, -H * 1.3)
+            p.fillRect(QRectF(-w / 2, -H * 1.4, w, H * 1.4), band)
+            p.restore()
+        mid = QRadialGradient(W * 0.74, H * 0.52, W * 0.3)
+        mid.setColorAt(0, QColor(70, 150, 235, 70))
+        mid.setColorAt(1, QColor(70, 150, 235, 0))
+        p.fillRect(0, 0, W, H, mid)
+        glow = QRadialGradient(W * 0.88, H * 0.84, W * 0.2)
+        glow.setColorAt(0, QColor(90, 175, 255, 90))
+        glow.setColorAt(1, QColor(90, 175, 255, 0))
+        p.fillRect(0, 0, W, H, glow)
+        top = QLinearGradient(0, 0, 0, H * 0.35)
+        top.setColorAt(0, QColor(4, 14, 40, 150))
+        top.setColorAt(1, QColor(4, 14, 40, 0))
+        p.fillRect(0, 0, W, int(H * 0.35), top)
+        p.end()
+        return pm
 
     def chrome(self, p, W, H):
-        # Back button and the orb (Halcyon's logo where Windows' was), top left.
-        r = int(H * 0.028)
-        cx, cy = int(W * 0.035), int(H * 0.06)
-        if self.stack:
+        cy = int(H * 0.06)
+        orb = int(H * 0.05)
+        # Clock and orb, top right (the orb is Halcyon's logo where Media Center had its own).
+        ox = W - int(W * 0.03) - orb
+        if not self.logo.isNull():
+            s = self.logo.scaled(orb, orb, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            p.drawPixmap(ox, cy - s.height() // 2, s)
+            self.hit(QRect(ox, cy - orb // 2, orb, orb),
+                     lambda: (self.stack.clear(), self.go("start", back=True)) if self.screen != "start" else None)
+        self.text(p, QRect(0, cy - orb, ox - int(W * 0.008), 2 * orb), time.strftime("%-I:%M %p"),
+                  font(H * 0.03, QFont.Normal), WHITE, Qt.AlignRight | Qt.AlignVCenter)
+        if self.screen != "start" or self.stack:
+            r = int(H * 0.026)
+            cx = int(W * 0.035)
             p.setPen(QPen(QColor(220, 235, 255, 210), max(2, r // 8)))
             p.setBrush(QColor(255, 255, 255, 25))
             p.drawEllipse(QPointF(cx, cy), r, r)
@@ -729,17 +768,9 @@ class MediaCenter(QWidget):
             p.drawLine(QPointF(cx - r * 0.45, cy), QPointF(cx - r * 0.05, cy - r * 0.4))
             p.drawLine(QPointF(cx - r * 0.45, cy), QPointF(cx - r * 0.05, cy + r * 0.4))
             self.hit(QRect(cx - r, cy - r, 2 * r, 2 * r), self.back)
-        if not self.logo.isNull():
-            s = self.logo.scaled(int(r * 2.6), int(r * 2.6), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            ox = cx + r * 2 if self.stack else cx - r
-            p.drawPixmap(int(ox), cy - s.height() // 2, s)
-            self.hit(QRect(int(ox), cy - s.height() // 2, s.width(), s.height()),
-                     lambda: (self.stack.clear(), self.go("start", back=True)) if self.screen != "start" else None)
-        self.text(p, QRect(0, cy - r, W - int(W * 0.035), 2 * r), time.strftime("%-I:%M"), font(H * 0.034),
-                  WHITE, Qt.AlignRight | Qt.AlignVCenter)
         if self.message or self.error or self.loading:
             msg = self.message or (f"Couldn't load your library: {self.error}" if self.error else "Loading your library…")
-            self.text(p, QRect(int(W * 0.05), int(H * 0.93), int(W * 0.9), int(H * 0.05)), msg,
+            self.text(p, QRect(int(W * 0.05), int(H * 0.94), int(W * 0.9), int(H * 0.04)), msg,
                       font(H * 0.022), SOFT, Qt.AlignRight | Qt.AlignVCenter)
 
     def poster(self, p, item, r, focused, label_below=False):
@@ -826,67 +857,143 @@ class MediaCenter(QWidget):
             getattr(self, "paint_" + self.screen)(p, W, H)
         self.chrome(p, W, H)
 
+    def glyph(self, p, kind, c, size, color):
+        """Simple line icons for strip items without pictures."""
+        p.save()
+        p.setPen(QPen(color, max(2, size * 0.08), Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        p.setBrush(Qt.NoBrush)
+        x, y, r = c.x(), c.y(), size / 2
+        if kind == "settings":
+            p.drawEllipse(QPointF(x, y), r * 0.38, r * 0.38)
+            for k in range(8):
+                a = k * math.pi / 4
+                p.drawLine(QPointF(x + math.cos(a) * r * 0.55, y + math.sin(a) * r * 0.55),
+                           QPointF(x + math.cos(a) * r * 0.85, y + math.sin(a) * r * 0.85))
+        elif kind == "refresh":
+            p.drawArc(QRectF(x - r * 0.7, y - r * 0.7, r * 1.4, r * 1.4), 40 * 16, 290 * 16)
+            p.drawLine(QPointF(x + r * 0.55, y - r * 0.45), QPointF(x + r * 0.62, y - r * 0.05))
+            p.drawLine(QPointF(x + r * 0.55, y - r * 0.45), QPointF(x + r * 0.15, y - r * 0.38))
+        elif kind == "close":
+            p.drawLine(QPointF(x - r * 0.5, y - r * 0.5), QPointF(x + r * 0.5, y + r * 0.5))
+            p.drawLine(QPointF(x + r * 0.5, y - r * 0.5), QPointF(x - r * 0.5, y + r * 0.5))
+        else:                                   # libraries: a little grid of covers
+            for gx in range(3):
+                for gy in range(2):
+                    p.drawRect(QRectF(x - r * 0.75 + gx * r * 0.52, y - r * 0.6 + gy * r * 0.62, r * 0.4, r * 0.52))
+        p.restore()
+
+    def collage(self, p, r, items):
+        """Media Center's library tile: a grid of covers inside the frame."""
+        cols, rows = 6, 3
+        cw, ch = r.width() / cols, r.height() / rows
+        for k, it in enumerate(items[:cols * rows]):
+            cell = QRect(int(r.x() + (k % cols) * cw) + 1, int(r.y() + (k // cols) * ch) + 1,
+                         int(cw) - 2, int(ch) - 2)
+            src = it.get("_src")
+            pm = self.img.get(it.get("poster"), src.image_headers() if src else None, cell.width(), cell.height())
+            if pm is not None:
+                p.drawPixmap(cell.topLeft(), pm)
+            else:
+                p.fillRect(cell, QColor(60, 110, 190, 120))
+
+    def library_items(self, action):
+        return {"movies": self.data["movies"], "tv": self.data["shows"],
+                "all": self.data["movies"][:6] + self.data["shows"][:6]}.get(action, [])
+
     def paint_start(self, p, W, H):
         rows = self.rows()
-        x0 = int(W * 0.16)
-        cy = int(H * 0.42)
-        gap = int(H * 0.12)
+        x0 = int(W * 0.18)
+        label_px = H * 0.062
+        fy = H * 0.55                               # focused row's name
         mpos = self.val("menu", self.menu)
+        fm = QFontMetrics(font(label_px))
         for i, (label, tiles) in enumerate(rows):
-            off = i - mpos                         # fractional while gliding
-            near = max(0.0, 1 - abs(off))          # 1 on the focused row
-            # Rows below the open one make room for its strip and caption.
-            y = cy + off * gap + max(0.0, min(1.0, off)) * H * 0.27
-            f = font(H * (0.05 + 0.025 * near))
-            alpha = int(max(40, 170 - abs(off) * 60) + (255 - 170) * near)
-            color = QColor(int(190 + 65 * near), int(215 + 40 * near), 255, min(255, alpha))
-            self.text(p, QRect(x0, int(y - H * 0.06), int(W * 0.5), int(H * 0.12)), label, f, color,
-                      Qt.AlignLeft | Qt.AlignVCenter, glow=near > 0.5)
-            self.hit(QRect(x0, int(y - H * 0.04), int(W * 0.3), int(H * 0.08)),
+            off = i - mpos
+            near = max(0.0, 1 - abs(off))
+            if off <= 0:
+                y = fy + off * H * 0.09 - (H * 0.025 if off < -0.5 else H * 0.025 * -off)
+            else:
+                y = fy + H * 0.38 + (off - 1) * H * 0.09 if off >= 1 else fy + off * H * 0.38
+            x = x0 - W * 0.015 * near               # the focused name steps a little left
+            muted = QColor(118, 150, 196, int(max(0, 230 - max(0, abs(off) - 1) * 90)))
+            color = QColor(int(muted.red() + (255 - muted.red()) * near), int(muted.green() + (255 - muted.green()) * near),
+                           int(muted.blue() + (255 - muted.blue()) * near), int(muted.alpha() + (255 - muted.alpha()) * near))
+            if off > 0.5:
+                color.setAlpha(int(color.alpha() * 0.45))      # the row under the strip is faint
+            self.text(p, QRect(int(x), int(y - H * 0.05), int(W * 0.6), int(H * 0.1)), label.title() if label != "tv" else "TV",
+                      font(label_px), color, Qt.AlignLeft | Qt.AlignVCenter)
+            self.hit(QRect(int(x), int(y - H * 0.04), fm.horizontalAdvance(label) + 20, int(H * 0.08)),
                      lambda i=i: (setattr(self, "menu", i), self.bump(), self.follow(), self.update()))
             if i != self.menu:
                 continue
-            # The focused row opens into a strip of tiles under its name, fading in as it arrives.
+            # The focused row opens into its strip under the name.
             p.setOpacity(max(0.0, 1 - abs(off) * 1.5))
-            th = int(H * 0.17)
-            ty = int(y + H * 0.05)
+            ty = int(fy + H * 0.055)
+            th = int(H * 0.175)
+            slot = int(W * 0.145)
+            focus_w = int(W * 0.19)
             spos = self.val(f"strip{i}", max(0, self.tile[i] - 3))
-            widths = []
-            for cap, item, action in tiles:
-                widths.append(int(th * self.POSTER) if item and item.get("poster") and item["kind"] != "episode"
-                              else int(th * 1.55))
-            step = int(H * 0.018)
-            whole = int(spos)
-            x = x0 - sum(w + step for w in widths[:whole]) - (spos - whole) * (widths[whole] + step if whole < len(widths) else 0)
+            x = x0 - spos * slot
             for j, (cap, item, action) in enumerate(tiles):
-                tw = widths[j]
-                if x + tw < 0:
-                    x += tw + step
-                    continue
+                foc = j == self.tile[i]
+                art = item is not None and (item.get("poster") or item.get("thumb"))
+                lib = item is None and action in ("movies", "tv", "all")
+                if art:
+                    tw = int(th * (1.6 if item["kind"] == "episode" else self.POSTER))
+                elif lib:
+                    tw = focus_w
+                else:
+                    tw = slot - int(W * 0.02)
                 if x > W:
                     break
                 r = QRect(int(x), ty, tw, th)
-                foc = j == self.tile[i]
                 if foc:
-                    k = 0.06 * self.pop
+                    k = 0.04 * self.pop
                     r = r.adjusted(-int(tw * k / 2), -int(th * k / 2), int(tw * k / 2), int(th * k / 2))
-                if item is not None and (item.get("poster") or item.get("thumb")):
+                    p.setPen(Qt.NoPen)
+                    p.setBrush(QColor(0, 0, 0, 70))
+                    p.drawRoundedRect(QRectF(r).adjusted(-4, -2, 6, 8), 5, 5)
+                if art:
                     shown = dict(item, poster=item.get("thumb") or item.get("poster")) if item["kind"] == "episode" \
                         else item
+                    if not foc:
+                        p.setOpacity(p.opacity() * 0.72)        # unfocused items sit back, as in Media Center
                     self.poster(p, shown, r, foc)
+                    p.setOpacity(max(0.0, 1 - abs(off) * 1.5))
+                elif lib:
+                    p.setOpacity(p.opacity() * (1 if foc else 0.75))
+                    self.collage(p, r, self.library_items(action))
+                    p.setOpacity(max(0.0, 1 - abs(off) * 1.5))
+                    if foc:
+                        frame = QLinearGradient(0, r.top(), 0, r.bottom())
+                        frame.setColorAt(0, QColor(255, 255, 255, 60))
+                        frame.setColorAt(0.5, QColor(255, 255, 255, 0))
+                        p.fillRect(r, frame)
+                        for gl, a in ((2, 220), (5, 70)):
+                            p.setPen(QPen(QColor(200, 230, 255, a), gl))
+                            p.setBrush(Qt.NoBrush)
+                            p.drawRoundedRect(QRectF(r).adjusted(-gl / 2, -gl / 2, gl / 2, gl / 2), 4, 4)
                 else:
-                    self.tile_box(p, r, cap, foc)
-                if foc:
-                    self.text(p, QRect(x0, ty + th + int(H * 0.015), int(W * 0.7), int(H * 0.05)),
-                              cap if item is None else (f"{item['series']}: {item['title']}" if item["kind"] == "episode"
-                                                        else item["title"]),
-                              font(H * 0.03), SOFT)
+                    self.glyph(p, action, QPointF(r.center().x(), r.top() + th * 0.42), th * 0.36,
+                               WHITE if foc else QColor(170, 200, 235, 170))
+                    if foc:
+                        p.setPen(QPen(QColor(200, 230, 255, 200), 2))
+                        p.setBrush(QColor(255, 255, 255, 22))
+                        p.drawRoundedRect(QRectF(r), 5, 5)
+                # Every item has its caption under it; the focused one's is white.
+                text = cap if item is None else (item["series"] or item["title"]) if item["kind"] == "episode" else item["title"]
+                cy = r.bottom() + int(H * 0.005) if (foc or art or lib) else ty + int(th * 0.72)
+                cf = font(H * (0.032 if foc else 0.028))
+                cw = max(r.width() + 30, slot - int(W * 0.01))
+                shown_text = QFontMetrics(cf).elidedText(text.lower() if item is None else text, Qt.ElideRight, cw)
+                self.text(p, QRect(r.center().x() - cw // 2, cy, cw, int(H * 0.045)), shown_text,
+                          cf, WHITE if foc else QColor(150, 180, 220, 190), Qt.AlignHCenter | Qt.AlignTop)
                 self.hit(r, lambda j=j, i=i: self._tile_click(i, j))
-                x += tw + step
+                x += max(slot, tw + int(W * 0.025))
             p.setOpacity(1)
         if not self.sources and not self.loading:
-            self.text(p, QRect(x0, int(H * 0.86), int(W * 0.8), int(H * 0.05)),
-                      "Sign in to Jellyfin or Plex: tasks › settings", font(H * 0.028), SOFT)
+            self.text(p, QRect(x0, int(H * 0.9), int(W * 0.8), int(H * 0.05)),
+                      "Sign in to Jellyfin or Plex: Tasks › settings", font(H * 0.028), SOFT)
 
     def _tile_click(self, i, j):
         if self.menu == i and self.tile[i] == j:
@@ -1097,8 +1204,23 @@ class MediaCenter(QWidget):
             self.hit(r, lambda i=i: (setattr(self, "button", i), self.activate()))
 
 
+def use_segoe():
+    """Media Center's typeface is Segoe; use the copy imported for Halcyon Messenger
+    (from the user's own Messenger installer) when it's there."""
+    global FONT
+    from PySide6.QtGui import QFontDatabase
+    d = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "halcyon/messenger/skin/fonts"
+    for f in ("segoeui.ttf", "segoeuil.ttf", "segoeuisl.ttf"):
+        if (d / f).exists():
+            fid = QFontDatabase.addApplicationFont(str(d / f))
+            fams = QFontDatabase.applicationFontFamilies(fid)
+            if fams:
+                FONT = fams[0]
+
+
 def main():
     app = QApplication(sys.argv)
+    use_segoe()
     app.setApplicationName("halcyon-mediacenter")
     app.setDesktopFileName("halcyon-mediacenter")
     w = MediaCenter()
