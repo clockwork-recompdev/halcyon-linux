@@ -8,6 +8,7 @@ Settings live in ~/.config/halcyon/retro-browser.json (proxy address, home)."""
 import json
 import math
 import os
+import secrets
 import sys
 from pathlib import Path
 
@@ -108,6 +109,103 @@ PLUGINS_JS = r"""
   }
 })();
 """
+
+
+# Runs in its own JavaScript world: the page's scripts can't see the token, so only a click
+# on one of these boxes can ask Halcyon to play something.
+MEDIA_JS = r"""
+(function () {
+  if (window.__halcyonMedia) return;
+  window.__halcyonMedia = true;
+  // QuickTime, RealPlayer, Windows Media and other old players: a click-to-play box in their
+  // place; the click hands the file to Halcyon (mpv decodes the old codecs).
+  var MEDIA = /\.(mov|qt|mp4|m4v|avi|wmv|asf|asx|wma|rm|ram|rpm|ra|rv|mpg|mpeg|mpe|m1v|mp3|wav|au|aif|aiff|snd|mid|midi|rmi|ogg|ogv|flv|3gp|smil?)(\?|#|$)/i;
+  var TYPES = /quicktime|x-mplayer2|x-ms-|realaudio|realvideo|x-pn-|x-rn-|vnd\.rn|mpeg|x-wav|x-aiff|basic|x-midi|audio\/mid|video\//i;
+  var CLASSIDS = {"clsid:02bf25d5-8c17-4b23-bc80-d3488abddc6b": "QuickTime",
+                  "clsid:22d6f312-b0f6-11d0-94ab-0080c74c7e95": "Windows Media",
+                  "clsid:6bf52a52-394a-11d3-b153-00c04f79faa6": "Windows Media",
+                  "clsid:cfcdaa03-8be4-11cf-b84b-0020afbbccfa": "RealPlayer"};
+  function attr(el, n) { return el.getAttribute(n) || ""; }
+  function param(el, names) {
+    var ps = el.getElementsByTagName("param");
+    for (var i = 0; i < ps.length; i++)
+      if (names.indexOf((attr(ps[i], "name") || "").toLowerCase()) !== -1) return attr(ps[i], "value");
+    return "";
+  }
+  function playerName(src, type, clsid) {
+    if (CLASSIDS[clsid]) return CLASSIDS[clsid];
+    var s = (src + " " + type).toLowerCase();
+    if (/quicktime|\.mov|\.qt\b/.test(s)) return "QuickTime";
+    if (/real|x-pn-|\.r[am]\b|\.rpm|\.rv/.test(s)) return "RealPlayer";
+    if (/x-ms-|mplayer2|\.wm[av]|\.as[fx]/.test(s)) return "Windows Media";
+    if (/midi?\b|\.rmi/.test(s)) return "MIDI";
+    return "Media";
+  }
+  function mediaBox(el, src, name) {
+    var abs; try { abs = new URL(src, document.baseURI).href; } catch (e) { return; }
+    var w = parseInt(attr(el, "width")) || 0, h = parseInt(attr(el, "height")) || 0;
+    var audio = /\.(mp3|wav|au|aif|aiff|snd|mid|midi|rmi|wma|ra|ram)(\?|#|$)/i.test(src) || name === "MIDI";
+    if (!w || w < 120) w = audio ? 280 : 320;
+    if (!h || h < 40) h = audio ? 46 : 240;
+    var box = document.createElement("div");
+    box.title = abs;
+    box.style.cssText = "display:inline-block;position:relative;cursor:pointer;vertical-align:middle;" +
+      "width:" + w + "px;height:" + h + "px;box-sizing:border-box;border:1px solid #3a4250;border-radius:3px;" +
+      "background:linear-gradient(#2b3340,#11151b);color:#dfe8f3;font:12px Tahoma,Verdana,sans-serif;overflow:hidden";
+    var big = h >= 90;
+    box.innerHTML =
+      "<div style='position:absolute;left:0;right:0;top:" + (big ? "50%" : "0") + ";" + (big ? "margin-top:-34px;" : "bottom:0;") +
+      "display:flex;align-items:center;justify-content:center;gap:10px;flex-direction:" + (big ? "column" : "row") + "'>" +
+      "<div style='width:" + (big ? 46 : 28) + "px;height:" + (big ? 46 : 28) + "px;border-radius:50%;" +
+      "background:radial-gradient(circle at 50% 30%,#8fd0ff,#2a6cc6 60%,#1b4a8a);box-shadow:0 0 6px #4aa3ff;" +
+      "display:flex;align-items:center;justify-content:center'>" +
+      "<div style='margin-left:" + (big ? 5 : 3) + "px;width:0;height:0;border-style:solid;border-width:" +
+      (big ? "10px 0 10px 16px" : "6px 0 6px 10px") + ";border-color:transparent transparent transparent white'></div></div>" +
+      "<div style='text-align:center;line-height:1.3'><b>" + name + "</b>" + (big ? "<br>" : " &middot; ") +
+      "<span style='color:#9fb0c6'>" + decodeURIComponent(abs.split("/").pop().split("?")[0]).slice(0, 40) + "</span></div></div>";
+    box.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      box.style.borderColor = "#4aa3ff";
+      console.log("%TOKEN%" + abs);
+    });
+    el.parentNode.replaceChild(box, el);
+  }
+  function swapMedia() {
+    var els = Array.prototype.slice.call(document.querySelectorAll("embed, object, bgsound"));
+    els.forEach(function (el) {
+      if (!el.parentNode || el.closest && el.closest("ruffle-player, ruffle-object, ruffle-embed")) return;
+      var tag = el.tagName.toLowerCase();
+      var type = attr(el, "type").toLowerCase();
+      var clsid = attr(el, "classid").toLowerCase();
+      var src = attr(el, "src") || attr(el, "data") || attr(el, "qtsrc") ||
+                param(el, ["src", "filename", "url", "fileurl", "movie", "qtsrc"]);
+      if (!src || /\.swf(\?|#|$)/i.test(src) || /flash|shockwave|java/.test(type)) return;
+      if (tag === "object" && el.querySelector("embed")) return;       // the inner <embed> is handled
+      if (!(MEDIA.test(src) || TYPES.test(type) || CLASSIDS[clsid])) return;
+      if (tag === "bgsound" || /^(true|1)$/i.test(attr(el, "hidden"))) {
+        // Background music: a small note in the corner instead of a surprise.
+        if (document.getElementById("halcyon-bgsound")) { el.parentNode.removeChild(el); return; }
+        var n = document.createElement("div");
+        n.id = "halcyon-bgsound";
+        n.style.cssText = "position:fixed;right:10px;bottom:10px;z-index:2147483647;cursor:pointer;" +
+          "background:#ffffe1;border:1px solid #a0a0a0;padding:4px 8px;font:12px Tahoma,sans-serif;color:#000;" +
+          "box-shadow:2px 2px 4px rgba(0,0,0,.25)";
+        n.textContent = "\u266B This page has background music - click to play";
+        var abs; try { abs = new URL(src, document.baseURI).href; } catch (e) { return; }
+        n.addEventListener("click", function () { console.log("%TOKEN%" + abs); n.remove(); });
+        (document.body || document.documentElement).appendChild(n);
+        el.parentNode.removeChild(el);
+        return;
+      }
+      mediaBox(el, src, playerName(src, type, clsid));
+    });
+  }
+  var html = document.documentElement ? document.documentElement.innerHTML.toLowerCase() : "";
+  if (/<(embed|object|bgsound)/.test(html)) swapMedia();
+
+})();
+"""
+MEDIA_TOKEN = "halcyon-play:" + secrets.token_hex(12) + ":"
 
 
 def plugins_js(ruffle_url):
@@ -320,10 +418,38 @@ class Tab(QWebEngineView):
 
 
 class Page(QWebEnginePage):
+    last_play = 0.0
+
+    def javaScriptConsoleMessage(self, level, message, line, source):
+        if message.startswith(MEDIA_TOKEN):
+            import time
+            if time.monotonic() - Page.last_play > 1.5:          # one player per click, not a flood
+                Page.last_play = time.monotonic()
+                play_media(message[len(MEDIA_TOKEN):], self.url().toString())
+
     def createWindow(self, kind):
         # Links opening a new window (target=_blank, window.open) get a tab, as IE7 did.
         view = self.parent()
         return view.win.new_tab(background=kind == QWebEnginePage.WebBrowserBackgroundTab).page()
+
+
+def play_media(url, referrer=""):
+    """Old QuickTime / RealPlayer / Windows Media files: mpv plays nearly all of them
+    (ffmpeg still decodes Sorenson, Cinepak, WMV, RealVideo...). Through Protoweb when it's on."""
+    if not url.lower().startswith(("http://", "https://", "ftp://", "rtsp://", "mms://")):
+        return
+    cmd = ["mpv", "--force-window=immediate", "--keep-open=yes", "--no-ytdl", f"--title=${{media-title}} - {APP}",
+           "--autofit-larger=80%x80%"]
+    if CFG.get("protoweb") and url.lower().startswith("http://"):
+        cmd.append(f"--http-proxy=http://{CFG['proxy']}")
+    if referrer.startswith("http"):
+        cmd.append(f"--referrer={referrer}")
+    import shutil
+    import subprocess
+    if not shutil.which("mpv"):
+        QMessageBox.warning(None, APP, "Playing old media needs mpv (pacman -S mpv).")
+        return
+    subprocess.Popen(cmd + ["--", url], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 QSS = """
@@ -385,6 +511,13 @@ class Window(QMainWindow):
         script.setWorldId(QWebEngineScript.MainWorld)
         script.setRunsOnSubFrames(True)
         self.profile.scripts().insert(script)
+        media = QWebEngineScript()
+        media.setName("halcyon-retro-media")
+        media.setSourceCode(MEDIA_JS.replace("%TOKEN%", MEDIA_TOKEN))
+        media.setInjectionPoint(QWebEngineScript.DocumentReady)
+        media.setWorldId(QWebEngineScript.ApplicationWorld)
+        media.setRunsOnSubFrames(True)
+        self.profile.scripts().insert(media)
 
         central = QWidget()
         col = QVBoxLayout(central)

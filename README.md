@@ -143,7 +143,9 @@ title in mpv, disc menus in VLC, eject). Keyboard, remote or gamepad.
 - **Halcyon Navigator** (`halcyon-navigator`): an Internet Explorer 7-style browser for the old web.
   `http://` goes through [Protoweb](https://protoweb.org)'s proxy (home: the iNode Gateway),
   Flash runs in the bundled Ruffle and Java applets in CheerpJ. Protoweb and live-web browsing
-  keep separate profiles. Settings: `~/.config/halcyon/retro-browser.json`.
+  keep separate profiles. QuickTime, RealPlayer and Windows Media embeds (and background MIDI)
+  become click-to-play boxes that open in mpv, through Protoweb when it's on.
+  Settings: `~/.config/halcyon/retro-browser.json`.
 - **Halcyon Mail** (`halcyon-mail`): Windows Live Mail-style e-mail for any IMAP/SMTP account. Server
   settings are found automatically (built-in list, then Thunderbird's ISPDB); passwords go to the
   system keyring (`secret-tool`); pictures stay blocked until asked for; new mail notifies.
