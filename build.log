@@ -32,3 +32,8 @@ wrote /home/nathan/HalcyonLinux/player/skins/halcyon
 ==> Leaving fakeroot environment.
 ==> Finished making: halcyon-branding 2026.10.29.2228-1 (Thu 29 Oct 2026 10:28:22 PM PDT)
 [38;2;30;155;224m==>[0m [1mAssembling archiso profile[0m
+[38;2;30;155;224m==>[0m [1mRunning mkarchiso (this takes a while)[0m
+[mkarchiso] WARNING: Running as root is not advised.
+[mkarchiso] INFO: Validating options...
+[mkarchiso] ERROR: Validating 'uefi.grub': grub-install is not available on this host. Install 'grub'!
+[mkarchiso] ERROR: 1 errors were encountered while validating the profile. Aborting.

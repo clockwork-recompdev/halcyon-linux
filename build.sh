@@ -44,8 +44,10 @@ assets=$HERE/branding/assets
 [[ -f $assets/logo.png || -f $assets/logo.svg ]] || die "Put your logo at branding/assets/logo.png (or .svg)."
 compgen -G "$assets/wallpapers/*.*" >/dev/null || die "Put at least one wallpaper in branding/assets/wallpapers/."
 
+# grub: mkarchiso builds the ISO's UEFI boot loader with the host's grub tools
+# (installing the package doesn't change how this computer boots).
 need=()
-for p in archiso librsvg imagemagick python; do pacman -Q "$p" &>/dev/null || need+=("$p"); done
+for p in archiso librsvg imagemagick python grub; do pacman -Q "$p" &>/dev/null || need+=("$p"); done
 if ((${#need[@]})); then
     msg "Installing build tools: ${need[*]}"
     sudo pacman -S --needed --noconfirm "${need[@]}"
