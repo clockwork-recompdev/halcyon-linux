@@ -249,6 +249,9 @@ def tasks():
          "Your music library in a Windows Media Player 11-style window - albums, artists, playlists - "
          "or a classic Windows Media Player skin.",
          [("Music library", ["halcyon-player", "--library"]), ("Skin mode", ["halcyon-player"])], "extras"),
+        ("notes", "knotes", "Sticky Notes",
+         "Colorful notes for your desktop - shopping lists, phone numbers, reminders. They're there again "
+         "after you log on.", [("New note", ["halcyon-notes"])], "extras"),
         ("gadgets", "preferences-desktop-gadgets", "Desktop gadgets",
          "Put a clock, the weather, a slide show and more on your desktop.",
          [("Show gadgets", ["halcyon-gadgets"])], "extras"),

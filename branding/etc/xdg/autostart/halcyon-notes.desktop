@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Sticky Notes
+Exec=halcyon-notes --restore
+NoDisplay=true
+X-KDE-autostart-phase=2

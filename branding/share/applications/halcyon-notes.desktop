@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Sticky Notes
+GenericName=Desktop Notes
+Comment=Jot down reminders on colorful notes that stay on your desktop
+Exec=halcyon-notes
+Icon=knotes
+Categories=Utility;
+Keywords=notes;sticky;memo;post-it;reminder;
+StartupWMClass=halcyon-notes

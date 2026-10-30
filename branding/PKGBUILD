@@ -86,7 +86,7 @@ package() {
     done
     install -Dm644 "$startdir/etc/sddm.conf.d/10-halcyon.conf" "$pkgdir/etc/sddm.conf.d/10-halcyon.conf"
     for f in kwinrc plasmarc kcminputrc ksplashrc kscreenlockerrc konsolerc \
-             fastfetch/config.jsonc autostart/halcyon-yakuake.desktop autostart/halcyon-autoplay.desktop autostart/halcyon-screensaver.desktop autostart/halcyon-osk.desktop autostart/halcyon-gadgets.desktop autostart/halcyon-welcome.desktop autostart/halcyon-calendar-reminders.desktop plasma_workspace.notifyrc mimeapps.list \
+             fastfetch/config.jsonc autostart/halcyon-yakuake.desktop autostart/halcyon-autoplay.desktop autostart/halcyon-screensaver.desktop autostart/halcyon-osk.desktop autostart/halcyon-gadgets.desktop autostart/halcyon-welcome.desktop autostart/halcyon-calendar-reminders.desktop autostart/halcyon-notes.desktop plasma_workspace.notifyrc mimeapps.list \
              plasma-workspace/env/halcyon-shortcuts.sh; do
         install -Dm644 "$startdir/etc/xdg/$f" "$pkgdir/etc/xdg/$f"
     done
@@ -126,7 +126,7 @@ package() {
     for f in halcyon-install halcyon-mode halcyon-keys halcyon-gaming halcyon-dev \
              halcyon-disc-install halcyon-autoplay-dialog halcyon-aur halcyon-screensaver halcyon-player halcyon-wintheme halcyon-update \
              halcyon-games halcyon-osk halcyon-gadgets halcyon-messenger halcyon-mediacenter \
-             halcyon-navigator halcyon-welcome halcyon-mail halcyon-photos halcyon-calendar; do
+             halcyon-navigator halcyon-welcome halcyon-mail halcyon-photos halcyon-calendar halcyon-notes; do
         install -Dm755 "$startdir/bin/$f" "$pkgdir/usr/bin/$f"
     done
     ln -s halcyon-navigator "$pkgdir/usr/bin/halcyon-retro-browser"    # its old name
@@ -159,6 +159,10 @@ package() {
     done
     install -Dm644 "$startdir/udev/70-halcyon-uinput.rules" "$pkgdir/usr/lib/udev/rules.d/70-halcyon-uinput.rules"
     install -Dm644 "$startdir/udev/halcyon-uinput.conf" "$pkgdir/usr/lib/modules-load.d/halcyon-uinput.conf"
+
+    # Sticky Notes
+    install -d "$share/halcyon-notes/halcyon_notes"
+    install -m644 "$startdir"/../notes/halcyon_notes/*.py "$share/halcyon-notes/halcyon_notes/"
 
     # Halcyon Calendar
     install -d "$share/halcyon-calendar/halcyon_calendar"

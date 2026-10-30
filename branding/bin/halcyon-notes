@@ -1,0 +1,5 @@
+#!/bin/sh
+# Halcyon Sticky Notes: Windows 7-style notes on the desktop.
+here=/usr/share/halcyon-notes
+[ -d "$here" ] || here=$(dirname "$(readlink -f "$0")")/../../notes   # dev checkout
+PYTHONPATH=$here exec python3 -m halcyon_notes.app "$@"
