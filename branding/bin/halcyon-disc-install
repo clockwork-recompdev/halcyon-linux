@@ -158,8 +158,13 @@ log=$STATE/logs/$(tr -c 'A-Za-z0-9._-' '_' <<<"$title" | sed 's/_*$//').log
 ) >"$log" 2>&1
 rc=$?
 # Installers often hand off to child processes and exit early; wait for all
-# of them so "Insert Disc 2" prompts and finishing steps aren't cut off.
-wineserver -w
+# of them so "Insert Disc 2" prompts and finishing steps aren't cut off. A
+# leftover helper that never exits (InstallShield's script engine under Wine)
+# mustn't hang us forever, though.
+if ! timeout 120 wineserver -w; then
+    echo "Setup's helper programs were still running after 2 minutes; stopping them." >>"$log"
+    wineserver -k
+fi
 
 if grep -qE "could not load|File not found|cannot find|not a valid" "$log"; then
     kdialog --title "$title" --icon dialog-error --error \

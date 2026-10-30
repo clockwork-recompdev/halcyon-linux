@@ -87,14 +87,16 @@ disc_point_d() {  # disc_point_d CDLINK: aim the Windows environment's D: drive 
 }
 
 # ------------------------------------------------- old installer quirks ---
-# Some 2001-era MSI installers refuse to run for reasons that don't apply
-# under Wine. For those, run a copy of the MSI with the offending UI checks
+# Some 2001-era MSI installers refuse to run, or hang, for reasons that don't
+# apply under Wine. For those, run a copy of the MSI with the offending steps
 # switched off. Keyed by the MSI's ProductName; values are InstallUISequence
-# actions to skip.
+# actions to skip, or "button:Action" for actions a dialog button runs.
 declare -A MSI_SKIP=(
-    # "can't be installed on Windows XP 64-bit Edition" (Wine is 64-bit), and a
-    # video memory warning: Wine stores 4 GB+ cards' memory in a 32-bit value as 0.
-    ["Microsoft Plus! for Windows XP"]="CheckCPUType VidChkScript"
+    # "can't be installed on Windows XP 64-bit Edition" (Wine is 64-bit); a
+    # video memory warning (Wine stores 4 GB+ cards' memory in a 32-bit value as
+    # 0); and InstallShield's script engine CleanUp, which waits forever on its
+    # out-of-process helper under Wine: setup sat on a full progress bar.
+    ["Microsoft Plus! for Windows XP"]="CheckCPUType VidChkScript CleanUp button:CleanUp"
 )
 
 msi_quirk_fix() {  # msi_quirk_fix DISC_ROOT WORKDIR: prints the patched MSI's path, if one is needed
@@ -111,10 +113,19 @@ msi_quirk_fix() {  # msi_quirk_fix DISC_ROOT WORKDIR: prints the patched MSI's p
     done
     cp "$msi" "$work/setup.msi" && chmod u+w "$work/setup.msi"
     msiinfo export "$msi" InstallUISequence > "$work/InstallUISequence.idt" 2>/dev/null || return 1
-    awk -F'\t' -v OFS='\t' -v skip=" $skip " 'index(skip, " " $1 " ") { $2 = "0" } { print }' \
+    awk -F'\t' -v OFS='\t' -v skip=" $skip " 'NR > 3 && index(skip, " " $1 " ") { $2 = "0" } { print }' \
         "$work/InstallUISequence.idt" > "$work/seq.tmp" && mv "$work/seq.tmp" "$work/InstallUISequence.idt"
-    # Wine's own msidb writes the table (msitools mangles this MSI's string pool).
-    (cd "$work" && wine msidb -d "setup.msi" -f "." -i InstallUISequence.idt) >/dev/null 2>&1 || return 1
+    local tables=(InstallUISequence.idt)
+    if [[ " $skip " == *" button:"* ]]; then
+        # ControlEvent rows: Dialog, Control, Event, Argument, Condition, Ordering.
+        msiinfo export "$msi" ControlEvent > "$work/ControlEvent.idt" 2>/dev/null || return 1
+        awk -F'\t' -v OFS='\t' -v skip=" $skip " \
+            'NR > 3 && $3 == "DoAction" && index(skip, " button:" $4 " ") { $5 = "0" } { print }' \
+            "$work/ControlEvent.idt" > "$work/ev.tmp" && mv "$work/ev.tmp" "$work/ControlEvent.idt"
+        tables+=(ControlEvent.idt)
+    fi
+    # Wine's own msidb writes the tables (msitools mangles this MSI's string pool).
+    (cd "$work" && wine msidb -d "setup.msi" -f "." -i "${tables[@]}") >/dev/null 2>&1 || return 1
     wineserver -w
     echo "$work/setup.msi"
 }
