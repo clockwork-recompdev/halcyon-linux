@@ -1,0 +1,5 @@
+#!/bin/sh
+# Halcyon Photo Viewer: Vista Photo Gallery-style picture viewer.
+here=/usr/share/halcyon-photos
+[ -d "$here" ] || here=$(dirname "$(readlink -f "$0")")/../../photos   # dev checkout
+PYTHONPATH=$here exec python3 -m halcyon_photos.app "$@"

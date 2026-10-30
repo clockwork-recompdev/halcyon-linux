@@ -233,6 +233,9 @@ def tasks():
          "Your e-mail from Gmail, Outlook.com, Yahoo!, iCloud or any other account, in a classic Live Mail "
          "window. Pictures in messages stay blocked until you ask for them.",
          [("Open Mail", ["halcyon-mail"])], "extras"),
+        ("photos", "image-x-generic", "Photo Viewer",
+         "Look through your pictures, play them as a slide show, rotate them, and e-mail them to someone.",
+         [("Open Pictures", ["halcyon-photos", str(Path.home() / "Pictures")])], "extras"),
         ("messenger", "im-user", "Halcyon Messenger",
          "Chat with your Discord friends in a classic Messenger window.",
          [("Open Messenger", ["halcyon-messenger"])], "extras"),

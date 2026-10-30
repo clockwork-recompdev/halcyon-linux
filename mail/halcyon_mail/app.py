@@ -1349,6 +1349,16 @@ def main():
         from urllib.parse import parse_qs
         q = parse_qs(url.query())
         Compose(w, w.cfg["accounts"][0], to=url.path(), subject=(q.get("subject") or [""])[0]).show()
+    # halcyon-mail --attach FILE...: a new message with files attached (Photo Viewer's E-mail button)
+    if "--attach" in sys.argv:
+        files = [str(Path(f).resolve()) for f in sys.argv[sys.argv.index("--attach") + 1:]
+                 if not f.startswith("-") and Path(f).is_file()]
+        if files and w.cfg["accounts"]:
+            c = Compose(w, w.cfg["accounts"][0],
+                        subject=Path(files[0]).name if len(files) == 1 else f"{len(files)} files")
+            c.attachments = files
+            c.show_files()
+            c.show()
     return app.exec()
 
 

@@ -147,6 +147,10 @@ title in mpv, disc menus in VLC, eject). Keyboard, remote or gamepad.
 - **Halcyon Mail** (`halcyon-mail`): Windows Live Mail-style e-mail for any IMAP/SMTP account. Server
   settings are found automatically (built-in list, then Thunderbird's ISPDB); passwords go to the
   system keyring (`secret-tool`); pictures stay blocked until asked for; new mail notifies.
+- **Halcyon Photo Viewer** (`halcyon-photos`): Vista Photo Gallery Viewer-style - glass control bar with
+  a round slide show button, zoom, lossless JPEG rotation (jpegtran), delete to Trash, an Info pane
+  with camera details, E-mail (opens Halcyon Mail with the picture attached), Set as Background.
+  The default picture viewer, via `/etc/xdg/mimeapps.list` (which also makes Mail the mailto: handler).
 - **Halcyon Update** (`halcyon-update`): a Windows Update-style window for system, Halcyon, AUR
   and Flatpak updates, with history and a daily check.
 - **Welcome Center** (`halcyon-welcome`): Vista's first-run window - computer details and

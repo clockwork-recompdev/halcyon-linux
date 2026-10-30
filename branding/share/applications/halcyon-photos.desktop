@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Halcyon Photo Viewer
+GenericName=Picture Viewer
+Comment=View pictures, play slide shows, rotate and e-mail photos
+Exec=halcyon-photos %u
+Icon=image-x-generic
+Categories=Graphics;Viewer;Photography;
+MimeType=image/jpeg;image/png;image/gif;image/webp;image/bmp;image/tiff;image/heif;image/avif;image/jxl;image/x-tga;image/vnd.microsoft.icon;
+Keywords=photo;picture;image;viewer;slideshow;gallery;
+Actions=SlideShow;
+
+[Desktop Action SlideShow]
+Name=Play Slide Show
+Exec=halcyon-photos --slideshow %u

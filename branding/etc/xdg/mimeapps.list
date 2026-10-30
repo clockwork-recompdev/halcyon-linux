@@ -1,0 +1,13 @@
+[Default Applications]
+image/jpeg=halcyon-photos.desktop
+image/png=halcyon-photos.desktop
+image/gif=halcyon-photos.desktop
+image/webp=halcyon-photos.desktop
+image/bmp=halcyon-photos.desktop
+image/tiff=halcyon-photos.desktop
+image/heif=halcyon-photos.desktop
+image/avif=halcyon-photos.desktop
+image/jxl=halcyon-photos.desktop
+image/x-tga=halcyon-photos.desktop
+image/vnd.microsoft.icon=halcyon-photos.desktop
+x-scheme-handler/mailto=halcyon-mail.desktop
