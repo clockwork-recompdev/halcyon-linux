@@ -13,11 +13,14 @@ makedepends=(python librsvg imagemagick)
 install=halcyon-branding.install
 _krohnkite=0.9.9.2
 _otvdm=0.9.0
+_ruffle=0.7.1
 source=("krohnkite-$_krohnkite.kwinscript::https://github.com/anametologin/krohnkite/releases/download/$_krohnkite/krohnkite.kwinscript"
-        "otvdm-$_otvdm.zip::https://github.com/otya128/winevdm/releases/download/v$_otvdm/otvdm-v$_otvdm.zip")
-noextract=("krohnkite-$_krohnkite.kwinscript" "otvdm-$_otvdm.zip")
+        "otvdm-$_otvdm.zip::https://github.com/otya128/winevdm/releases/download/v$_otvdm/otvdm-v$_otvdm.zip"
+        "ruffle-$_ruffle.tgz::https://registry.npmjs.org/@ruffle-rs/ruffle/-/ruffle-$_ruffle.tgz")
+noextract=("krohnkite-$_krohnkite.kwinscript" "otvdm-$_otvdm.zip" "ruffle-$_ruffle.tgz")
 sha256sums=('42f7f66531d366c74b5fc860381da3517ccb4cdccd1f80c122fcab6e9a8fcf7e'
-            '842b11aed5fa81f3e1d4272e0ee7d37f1a5a8f936de825309dda672835e16fd4')
+            '842b11aed5fa81f3e1d4272e0ee7d37f1a5a8f936de825309dda672835e16fd4'
+            'dc9e7407549a91accc41a14932b0b9d9a9d51a3742ce6f020888c8a76682b157')
 
 _assets="$startdir/assets"
 
@@ -122,7 +125,8 @@ package() {
     # Tools, os-release branding, desktop package list
     for f in halcyon-install halcyon-mode halcyon-keys halcyon-gaming halcyon-dev \
              halcyon-disc-install halcyon-autoplay-dialog halcyon-aur halcyon-screensaver halcyon-player halcyon-wintheme halcyon-update \
-             halcyon-games halcyon-osk halcyon-gadgets halcyon-messenger halcyon-mediacenter; do
+             halcyon-games halcyon-osk halcyon-gadgets halcyon-messenger halcyon-mediacenter \
+             halcyon-retro-browser; do
         install -Dm755 "$startdir/bin/$f" "$pkgdir/usr/bin/$f"
     done
     install -Dm755 "$startdir/lib/gaming-install" "$pkgdir/usr/lib/halcyon/gaming-install"
@@ -140,6 +144,12 @@ package() {
     install -m644 "$startdir"/../games/halcyon_games/*.py "$share/halcyon-games/halcyon_games/"
     install -Dm644 "$startdir/udev/70-halcyon-uinput.rules" "$pkgdir/usr/lib/udev/rules.d/70-halcyon-uinput.rules"
     install -Dm644 "$startdir/udev/halcyon-uinput.conf" "$pkgdir/usr/lib/modules-load.d/halcyon-uinput.conf"
+
+    # Halcyon Retro Browser, with Ruffle (Flash emulator, MIT/Apache) bundled
+    install -d "$share/halcyon-retro/halcyon_retro" "$share/halcyon-retro/ruffle"
+    install -m644 "$startdir"/../retro/halcyon_retro/*.py "$share/halcyon-retro/halcyon_retro/"
+    bsdtar -xf "$srcdir/ruffle-$_ruffle.tgz" -C "$share/halcyon-retro/ruffle" --strip-components=1 \
+        package/ruffle.js 'package/core.ruffle.*.js' 'package/*.wasm' package/LICENSE_MIT package/LICENSE_APACHE
 
     # Halcyon Media Center (uses the player's Jellyfin/Plex code and the games' gamepad code)
     install -d "$share/halcyon-mediacenter/halcyon_mediacenter"

@@ -13,3 +13,4 @@ __pycache__/
 games/.devlib/
 gadgets/test/*.gadget
 /build.log
+/retro/ruffle/
