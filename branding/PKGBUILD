@@ -7,7 +7,8 @@ arch=(any)
 license=(GPL-3.0-or-later)
 depends=(plasma-workspace kwin sddm plymouth oxygen oxygen-icons adobe-source-sans-fonts breeze-gtk konsole
          kdialog yakuake qt6-declarative pciutils polkit udisks2 pyside6 python-evdev xorg-xwayland
-         qt6-webengine libx11 msitools)
+         qt6-webengine libx11 msitools qt6-multimedia qt6-multimedia-ffmpeg qt6-imageformats
+         cabextract 7zip ffmpeg)
 makedepends=(python librsvg imagemagick)
 install=halcyon-branding.install
 _krohnkite=0.9.9.2
@@ -121,7 +122,7 @@ package() {
     # Tools, os-release branding, desktop package list
     for f in halcyon-install halcyon-mode halcyon-keys halcyon-gaming halcyon-dev \
              halcyon-disc-install halcyon-autoplay-dialog halcyon-aur halcyon-screensaver halcyon-player halcyon-wintheme halcyon-update \
-             halcyon-games halcyon-osk halcyon-gadgets; do
+             halcyon-games halcyon-osk halcyon-gadgets halcyon-messenger; do
         install -Dm755 "$startdir/bin/$f" "$pkgdir/usr/bin/$f"
     done
     install -Dm755 "$startdir/lib/gaming-install" "$pkgdir/usr/lib/halcyon/gaming-install"
@@ -139,6 +140,15 @@ package() {
     install -m644 "$startdir"/../games/halcyon_games/*.py "$share/halcyon-games/halcyon_games/"
     install -Dm644 "$startdir/udev/70-halcyon-uinput.rules" "$pkgdir/usr/lib/udev/rules.d/70-halcyon-uinput.rules"
     install -Dm644 "$startdir/udev/halcyon-uinput.conf" "$pkgdir/usr/lib/modules-load.d/halcyon-uinput.conf"
+
+    # Halcyon Messenger (its look is imported on first run from the user's own Messenger 2009 copy)
+    install -d "$share/halcyon-messenger/halcyon_messenger"
+    install -m644 "$startdir"/../messenger/halcyon_messenger/*.py "$startdir"/../messenger/halcyon_messenger/*.js \
+        "$share/halcyon-messenger/halcyon_messenger/"
+
+    # Halcyon Update (the Windows Update-style window behind halcyon-update)
+    install -d "$share/halcyon-update/halcyon_update"
+    install -m644 "$startdir"/../updater/halcyon_update/*.py "$share/halcyon-update/halcyon_update/"
 
     # Desktop gadgets: host (Python + shim.js) and the built-in gadgets
     install -d "$share/halcyon-gadgets/halcyon_gadgets" "$share/halcyon-gadgets/gadgets"

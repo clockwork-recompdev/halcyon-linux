@@ -263,6 +263,14 @@ case ${1:-} in
     _preview) _preview "${2:-}"; exit ;;
     install)  shift; install_pkgs "$dry" "$@"; exit ;;
     -u|--update|update) updates; exit ;;
+    --list)    # "name installed-version new-version" per AUR update (for Halcyon Update)
+        mapfile -t foreign < <(pacman -Qmq); (( ${#foreign[@]} )) || exit 0
+        json=$(info_json "${foreign[@]}")
+        while read -r name ver; do
+            new=$(jq -r --arg n "$name" '.results[] | select(.Name == $n) | .Version' <<<"$json")
+            [[ -n $new ]] && (( $(vercmp "$new" "$ver") > 0 )) && echo "$name $ver $new"
+        done < <(pacman -Qm)
+        exit ;;
     --count)   # number of AUR packages with updates (for halcyon-update --check)
         mapfile -t foreign < <(pacman -Qmq); (( ${#foreign[@]} )) || { echo 0; exit; }
         json=$(info_json "${foreign[@]}"); n=0

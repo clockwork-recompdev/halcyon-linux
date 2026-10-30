@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Update Halcyon
+Name=Halcyon Update
 Comment=Update the system, Halcyon, AUR packages and Flatpak apps
 Exec=halcyon-update
 Icon=system-software-update

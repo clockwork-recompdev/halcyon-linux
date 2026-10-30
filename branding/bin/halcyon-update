@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Halcyon updater.
-#   halcyon-update            update everything (system + Halcyon, AUR, Flatpak) in a terminal
-#   halcyon-update --check    count available updates and notify (run daily by a timer)
+#   halcyon-update             open Halcyon Update (the Windows Update-style window)
+#   halcyon-update --terminal  update everything (system + Halcyon, AUR, Flatpak) in a terminal
+#   halcyon-update --check     count available updates and notify (run daily by a timer)
 set -uo pipefail
 c=$'\e[38;2;30;155;224m' g=$'\e[38;2;108;192;74m' b=$'\e[1m' r=$'\e[0m'
 
@@ -15,7 +16,15 @@ count_updates() {
     echo "$repo $aur $fp"
 }
 
+gui() {
+    local here=/usr/share/halcyon-update
+    [[ -d $here ]] || here=$(dirname "$(readlink -f "$0")")/../../updater   # dev checkout
+    PYTHONPATH=$here exec python3 -m halcyon_update.app
+}
+
 if [[ ${1:-} == --check ]]; then
+    # "Never check" in Halcyon Update's settings turns this off.
+    grep -q '"notify": false' "${XDG_CONFIG_HOME:-$HOME/.config}/halcyon/update.json" 2>/dev/null && exit 0
     read -r repo aur fp < <(count_updates)
     total=$((repo + aur + fp))
     (( total > 0 )) || exit 0
@@ -23,9 +32,14 @@ if [[ ${1:-} == --check ]]; then
     (( aur || fp )) && msg+=" ($repo system, $aur AUR, $fp Flatpak)"
     action=$(notify-send --app-name="Halcyon" --icon=system-software-update \
         --action=update="Update now" "Halcyon updates" "$msg" 2>/dev/null)
-    [[ $action == update ]] && setsid -f konsole --hide-menubar -e halcyon-update
+    [[ $action == update ]] && setsid -f halcyon-update
     exit 0
 fi
+
+if [[ ${1:-} != --terminal && -n ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]]; then
+    gui
+fi
+[[ ${1:-} == --terminal ]] && shift
 
 if [[ ! -t 1 ]]; then exec konsole --hide-menubar -e "$0" "$@"; fi
 printf '%s%s  Updating Halcyon%s\n\n' "$c" "$b" "$r"

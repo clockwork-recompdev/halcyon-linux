@@ -83,3 +83,9 @@ python-evdev
 # Desktop gadgets (msitools: import gadget packs such as 8GadgetPack's installer)
 qt6-webengine
 msitools
+qt6-multimedia
+qt6-multimedia-ffmpeg
+qt6-imageformats
+cabextract
+7zip
+ffmpeg
