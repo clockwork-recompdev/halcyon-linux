@@ -128,6 +128,39 @@ def describe_exif(x):
     return rows
 
 
+def transform_file(p, t, jpegtran, image=None):
+    """Rotate or flip a picture file itself, as Vista did; JPEGs go through jpegtran so the
+    picture isn't recompressed. Returns an error message, or None."""
+    p = Path(p)
+    if not os.access(p, os.W_OK):
+        return "This picture is read-only, so it can't be changed."
+    if p.suffix.lower() in (".jpg", ".jpeg", ".jfif") and shutil.which("jpegtran") and \
+            exif(p).get("orientation", 1) in (1, None):
+        tmp = p.with_name(f".{p.name}.halcyon-tmp")
+        # Lossless when the size allows; otherwise re-encode below rather than trim the edges.
+        r = subprocess.run(["jpegtran", "-copy", "all", "-optimize", "-perfect", *jpegtran, "-outfile", str(tmp),
+                            str(p)], capture_output=True)
+        if r.returncode == 0:
+            os.replace(tmp, p)
+            return None
+        tmp.unlink(missing_ok=True)
+    if image is None:
+        image, _, err = load(p)
+        if image is None:
+            return err
+    img = image.transformed(t, Qt.SmoothTransformation)
+    if not img.save(str(p), "JPG" if p.suffix.lower() == ".jfif" else None, 95):
+        return "Halcyon Photo Viewer can't save changes to this kind of picture."
+    return None
+
+
+def show_in_folder(path):
+    if shutil.which("dolphin"):
+        subprocess.Popen(["dolphin", "--select", str(path)], start_new_session=True)
+    else:
+        subprocess.Popen(["xdg-open", str(Path(path).parent)], start_new_session=True)
+
+
 # ------------------------------------------------------------------ drawing ---
 def glyph(kind, size=22, color="#2d4f7c"):
     """The control-bar symbols, drawn here."""
@@ -739,12 +772,8 @@ class Viewer(QMainWindow):
             QApplication.clipboard().setImage(self.canvas.image)
 
     def show_in_folder(self):
-        if not self.path:
-            return
-        if shutil.which("dolphin"):
-            subprocess.Popen(["dolphin", "--select", str(self.path)], start_new_session=True)
-        else:
-            subprocess.Popen(["xdg-open", str(self.path.parent)], start_new_session=True)
+        if self.path:
+            show_in_folder(self.path)
 
     def fill_open_with(self):
         m = self.open_menu
@@ -770,34 +799,13 @@ class Viewer(QMainWindow):
                             jpegtran=["-flip", "horizontal" if horizontal else "vertical"])
 
     def transform_file(self, t, jpegtran):
-        """Change the file itself, as Vista did. JPEGs go through jpegtran so the
-        picture isn't recompressed."""
         p = self.path
         if not p or self.canvas.movie:
             return
-        if not os.access(p, os.W_OK):
-            QMessageBox.warning(self, APP, "This picture is read-only, so it can't be changed.")
+        err = transform_file(p, t, jpegtran, self.canvas.image)
+        if err:
+            QMessageBox.warning(self, APP, err)
             return
-        done = False
-        if p.suffix.lower() in (".jpg", ".jpeg", ".jfif") and shutil.which("jpegtran") and \
-                exif(p).get("orientation", 1) in (1, None):
-            tmp = p.with_name(f".{p.name}.halcyon-tmp")
-            r = subprocess.run(["jpegtran", "-copy", "all", "-optimize", "-perfect", *jpegtran, "-outfile", str(tmp), str(p)],
-                               capture_output=True)
-            if r.returncode != 0:          # odd sizes: allow trimming a few edge pixels
-                r = subprocess.run(["jpegtran", "-copy", "all", "-optimize", "-trim", *jpegtran, "-outfile", str(tmp), str(p)],
-                                   capture_output=True)
-            if r.returncode == 0:
-                os.replace(tmp, p)
-                done = True
-            else:
-                tmp.unlink(missing_ok=True)
-        if not done:
-            img = self.canvas.image.transformed(t, Qt.SmoothTransformation)
-            fmt = None if p.suffix.lower() not in (".jfif",) else "JPG"
-            if not img.save(str(p), fmt, 95):
-                QMessageBox.warning(self, APP, "Halcyon Photo Viewer can't save changes to this kind of picture.")
-                return
         self.show_index(self.index)
 
     def delete(self):
@@ -931,6 +939,14 @@ def main():
     f.setPointSizeF(9)
     app.setFont(f)
     args = [a for a in sys.argv[1:] if not a.startswith("-")]
+    if (not args and "--slideshow" not in sys.argv) or "--gallery" in sys.argv or "--import" in sys.argv:
+        from . import gallery                 # no picture given: the Photo Gallery library, as in Vista
+        app.setStyleSheet(gallery.QSS)
+        w = gallery.Gallery()
+        w.show()
+        if "--import" in sys.argv:
+            QTimer.singleShot(400, w.import_dialog)
+        return app.exec()
     target = None
     if args:
         a = args[0]

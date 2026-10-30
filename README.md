@@ -167,7 +167,11 @@ title in mpv, disc menus in VLC, eject). Keyboard, remote or gamepad.
   and reminders. iCalendar import/export and webcal/.ics subscriptions (time zones, RRULE, EXDATE,
   VALARM). Reminders come from `halcyon-calendar --daemon` (autostarted). Data:
   `~/.local/share/halcyon/calendar.json`.
-- **Halcyon Photo Viewer** (`halcyon-photos`): Vista Photo Gallery Viewer-style - glass control bar with
+- **Halcyon Photo Gallery** (`halcyon-photos` with no file): Windows Photo Gallery's library - All Pictures
+  and Videos, Recently Imported, Tags, Date Taken (EXIF or the file name), Ratings, Folders; thumbnails
+  grouped by day; stars, tags and captions kept in `~/.local/share/halcyon/photo-gallery.json` (files are
+  never rewritten); Import from a camera/memory card (any mount with DCIM) into `Pictures/<date> <tag>`.
+- **Halcyon Photo Viewer** (`halcyon-photos FILE`): Vista Photo Gallery Viewer-style - glass control bar with
   a round slide show button, zoom, lossless JPEG rotation (jpegtran), delete to Trash, an Info pane
   with camera details, E-mail (opens Halcyon Mail with the picture attached), Set as Background.
   The default picture viewer, via `/etc/xdg/mimeapps.list` (which also makes Mail the mailto: handler).

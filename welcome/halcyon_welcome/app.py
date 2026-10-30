@@ -237,9 +237,11 @@ def tasks():
          "Your e-mail from Gmail, Outlook.com, Yahoo!, iCloud or any other account, in a classic Live Mail "
          "window. Pictures in messages stay blocked until you ask for them.",
          [("Open Mail", ["halcyon-mail"])], "extras"),
-        ("photos", "image-x-generic", "Photo Viewer",
-         "Look through your pictures, play them as a slide show, rotate them, and e-mail them to someone.",
-         [("Open Pictures", ["halcyon-photos", str(Path.home() / "Pictures")])], "extras"),
+        ("photos", "image-x-generic", "Photo Gallery",
+         "All your pictures and videos by date taken, tag and rating - plus a slide show, rotating, e-mailing, "
+         "and importing from a camera or memory card.",
+         [("Open Photo Gallery", ["halcyon-photos"]), ("Import from a camera", ["halcyon-photos", "--import"])],
+         "extras"),
         ("calendar", "office-calendar", "Halcyon Calendar",
          "Appointments, tasks and reminders that pop up on time - and your Google or Outlook calendar too: "
          "subscribe with its secret iCal address.", [("Open Calendar", ["halcyon-calendar"])], "extras"),
