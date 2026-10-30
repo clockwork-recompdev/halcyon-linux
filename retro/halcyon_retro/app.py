@@ -70,7 +70,7 @@ if CFG.get("protoweb"):
                                                 " --proxy-bypass-list=127.0.0.1;localhost").strip()
 
 from PySide6.QtCore import QPointF, QRectF, QSize, QUrl, Qt  # noqa: E402
-from PySide6.QtGui import (QAction, QBrush, QColor, QFontDatabase, QIcon, QKeySequence, QLinearGradient,  # noqa: E402
+from PySide6.QtGui import (QAction, QBrush, QColor, QFontDatabase, QIcon, QKeySequence, QLinearGradient, QPalette,  # noqa: E402
                            QPainter, QPainterPath, QPen, QPixmap, QPolygonF, QRadialGradient)
 from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile, QWebEngineScript  # noqa: E402
 from PySide6.QtWebEngineWidgets import QWebEngineView  # noqa: E402
@@ -371,8 +371,11 @@ class Window(QMainWindow):
         self.setWindowTitle(APP)
         self.setWindowIcon(draw_icon("globe", 32))
         self.resize(1100, 800)
-        self.profile = QWebEngineProfile("halcyon-retro", self)
-        store = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "halcyon" / "retro-browser"
+        # Protoweb and the live web keep separate profiles: a live site's "always use https"
+        # (HSTS) memory would otherwise send http:// past Protoweb to the modern site.
+        mode = "protoweb" if CFG.get("protoweb") else "live"
+        self.profile = QWebEngineProfile(f"halcyon-retro-{mode}", self)
+        store = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "halcyon" / "retro-browser" / mode
         self.profile.setPersistentStoragePath(str(store))
         self.profile.setCachePath(str(store / "cache"))
         script = QWebEngineScript()
@@ -743,12 +746,30 @@ class Window(QMainWindow):
                           "through Protoweb, Flash plays through Ruffle and Java applets through CheerpJ.</p>")
 
 
+def light_palette():
+    pal = QPalette()
+    for role, color in ((QPalette.Window, "#f0f0f0"), (QPalette.WindowText, "#000000"),
+                        (QPalette.Base, "#ffffff"), (QPalette.AlternateBase, "#f4f7fb"),
+                        (QPalette.Text, "#000000"), (QPalette.PlaceholderText, "#6d6d6d"),
+                        (QPalette.Button, "#ececec"), (QPalette.ButtonText, "#000000"),
+                        (QPalette.ToolTipBase, "#ffffe1"), (QPalette.ToolTipText, "#000000"),
+                        (QPalette.Highlight, "#3399ff"), (QPalette.HighlightedText, "#ffffff"),
+                        (QPalette.Link, "#0000ee"), (QPalette.BrightText, "#ffffff")):
+        pal.setColor(role, QColor(color))
+    for role in (QPalette.WindowText, QPalette.Text, QPalette.ButtonText):
+        pal.setColor(QPalette.Disabled, role, QColor("#8a8a8a"))
+    return pal
+
+
 def main():
     QApplication.setAttribute(Qt.AA_ShareOpenGLContexts)
     app = QApplication(sys.argv)
     app.setApplicationName("halcyon-retro-browser")
     app.setDesktopFileName("halcyon-retro-browser")
     app.setStyle("Fusion")
+    app.setPalette(light_palette())        # IE was always light, whatever the desktop scheme
+    if hasattr(app.styleHints(), "setColorScheme"):
+        app.styleHints().setColorScheme(Qt.ColorScheme.Light)   # pages too (prefers-color-scheme)
     app.setStyleSheet(QSS)
     f = app.font()
     for fam in ("Segoe UI", "Selawik", "Noto Sans"):
