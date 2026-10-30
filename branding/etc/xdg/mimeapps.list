@@ -11,3 +11,6 @@ image/jxl=halcyon-photos.desktop
 image/x-tga=halcyon-photos.desktop
 image/vnd.microsoft.icon=halcyon-photos.desktop
 x-scheme-handler/mailto=halcyon-mail.desktop
+text/calendar=halcyon-calendar.desktop
+x-scheme-handler/webcal=halcyon-calendar.desktop
+x-scheme-handler/webcals=halcyon-calendar.desktop

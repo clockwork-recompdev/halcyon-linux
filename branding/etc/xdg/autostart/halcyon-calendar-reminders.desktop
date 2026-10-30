@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Halcyon Calendar Reminders
+Exec=halcyon-calendar --daemon
+NoDisplay=true
+X-KDE-autostart-phase=2

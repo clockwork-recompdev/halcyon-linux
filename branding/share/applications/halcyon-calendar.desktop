@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Halcyon Calendar
+GenericName=Calendar
+Comment=Appointments, tasks and reminders; subscribe to Google, Outlook or any .ics calendar
+Exec=halcyon-calendar %u
+Icon=office-calendar
+Categories=Office;Calendar;
+MimeType=text/calendar;x-scheme-handler/webcal;x-scheme-handler/webcals;
+Keywords=calendar;appointment;event;reminder;tasks;ics;schedule;

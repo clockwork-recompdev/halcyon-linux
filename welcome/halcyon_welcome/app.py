@@ -236,6 +236,9 @@ def tasks():
         ("photos", "image-x-generic", "Photo Viewer",
          "Look through your pictures, play them as a slide show, rotate them, and e-mail them to someone.",
          [("Open Pictures", ["halcyon-photos", str(Path.home() / "Pictures")])], "extras"),
+        ("calendar", "office-calendar", "Halcyon Calendar",
+         "Appointments, tasks and reminders that pop up on time - and your Google or Outlook calendar too: "
+         "subscribe with its secret iCal address.", [("Open Calendar", ["halcyon-calendar"])], "extras"),
         ("messenger", "im-user", "Halcyon Messenger",
          "Chat with your Discord friends in a classic Messenger window.",
          [("Open Messenger", ["halcyon-messenger"])], "extras"),

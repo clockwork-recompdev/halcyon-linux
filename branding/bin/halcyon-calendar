@@ -1,0 +1,5 @@
+#!/bin/sh
+# Halcyon Calendar: Windows Calendar-style appointments, tasks, reminders and .ics subscriptions.
+here=/usr/share/halcyon-calendar
+[ -d "$here" ] || here=$(dirname "$(readlink -f "$0")")/../../calendar   # dev checkout
+PYTHONPATH=$here exec python3 -m halcyon_calendar.app "$@"

@@ -155,6 +155,11 @@ title in mpv, disc menus in VLC, eject). Keyboard, remote or gamepad.
   system keyring (`secret-tool`); pictures stay blocked until asked for; new mail notifies.
   **Contacts** (`~/.local/share/halcyon/contacts.json`): people you write to are added automatically;
   To/Cc/Bcc autocomplete and a contact picker; vCard (.vcf) import and export.
+- **Halcyon Calendar** (`halcyon-calendar`): Windows Calendar (Vista)-style - mini month, calendars and
+  tasks on the left; Day / Week / Month (drag to create, move or resize); a Details pane with repeats
+  and reminders. iCalendar import/export and webcal/.ics subscriptions (time zones, RRULE, EXDATE,
+  VALARM). Reminders come from `halcyon-calendar --daemon` (autostarted). Data:
+  `~/.local/share/halcyon/calendar.json`.
 - **Halcyon Photo Viewer** (`halcyon-photos`): Vista Photo Gallery Viewer-style - glass control bar with
   a round slide show button, zoom, lossless JPEG rotation (jpegtran), delete to Trash, an Info pane
   with camera details, E-mail (opens Halcyon Mail with the picture attached), Set as Background.
