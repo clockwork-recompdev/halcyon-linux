@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Welcome Center
+GenericName=Get Started with Halcyon
+Comment=See this computer's details and set up Halcyon: gaming, artwork, updates, accounts and more
+Exec=halcyon-welcome
+Icon=halcyon-logo
+Categories=System;Settings;
+Keywords=welcome;getting started;setup;first run;computer details;

@@ -1,0 +1,5 @@
+#!/bin/sh
+# Welcome Center: computer details and getting-started tasks (opens at logon until turned off).
+here=/usr/share/halcyon-welcome
+[ -d "$here" ] || here=$(dirname "$(readlink -f "$0")")/../../welcome   # dev checkout
+PYTHONPATH=$here exec python3 -m halcyon_welcome.app "$@"

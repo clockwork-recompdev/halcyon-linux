@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Welcome Center
+Comment=Opens at logon until "Run at startup" is unticked
+Exec=halcyon-welcome --startup
+Icon=halcyon-logo
+OnlyShowIn=KDE;
+X-KDE-autostart-phase=2
+NoDisplay=true

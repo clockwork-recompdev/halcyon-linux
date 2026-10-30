@@ -86,7 +86,7 @@ package() {
     done
     install -Dm644 "$startdir/etc/sddm.conf.d/10-halcyon.conf" "$pkgdir/etc/sddm.conf.d/10-halcyon.conf"
     for f in kwinrc plasmarc kcminputrc ksplashrc kscreenlockerrc konsolerc \
-             fastfetch/config.jsonc autostart/halcyon-yakuake.desktop autostart/halcyon-autoplay.desktop autostart/halcyon-screensaver.desktop autostart/halcyon-osk.desktop autostart/halcyon-gadgets.desktop \
+             fastfetch/config.jsonc autostart/halcyon-yakuake.desktop autostart/halcyon-autoplay.desktop autostart/halcyon-screensaver.desktop autostart/halcyon-osk.desktop autostart/halcyon-gadgets.desktop autostart/halcyon-welcome.desktop \
              plasma-workspace/env/halcyon-shortcuts.sh; do
         install -Dm644 "$startdir/etc/xdg/$f" "$pkgdir/etc/xdg/$f"
     done
@@ -126,7 +126,7 @@ package() {
     for f in halcyon-install halcyon-mode halcyon-keys halcyon-gaming halcyon-dev \
              halcyon-disc-install halcyon-autoplay-dialog halcyon-aur halcyon-screensaver halcyon-player halcyon-wintheme halcyon-update \
              halcyon-games halcyon-osk halcyon-gadgets halcyon-messenger halcyon-mediacenter \
-             halcyon-retro-browser; do
+             halcyon-retro-browser halcyon-welcome; do
         install -Dm755 "$startdir/bin/$f" "$pkgdir/usr/bin/$f"
     done
     install -Dm755 "$startdir/lib/gaming-install" "$pkgdir/usr/lib/halcyon/gaming-install"
@@ -149,6 +149,10 @@ package() {
     done
     install -Dm644 "$startdir/udev/70-halcyon-uinput.rules" "$pkgdir/usr/lib/udev/rules.d/70-halcyon-uinput.rules"
     install -Dm644 "$startdir/udev/halcyon-uinput.conf" "$pkgdir/usr/lib/modules-load.d/halcyon-uinput.conf"
+
+    # Welcome Center
+    install -d "$share/halcyon-welcome/halcyon_welcome"
+    install -m644 "$startdir"/../welcome/halcyon_welcome/*.py "$share/halcyon-welcome/halcyon_welcome/"
 
     # Halcyon Retro Browser, with Ruffle (Flash emulator, MIT/Apache) bundled
     install -d "$share/halcyon-retro/halcyon_retro" "$share/halcyon-retro/ruffle"
