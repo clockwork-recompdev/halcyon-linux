@@ -1,0 +1,6 @@
+# Halcyon: play the logon and logoff sounds, as Vista and 7 did (Plasma ships them off).
+[Event/startkde]
+Action=Sound
+
+[Event/exitkde]
+Action=Sound

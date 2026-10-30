@@ -9,7 +9,7 @@ depends=(plasma-workspace kwin sddm plymouth oxygen oxygen-icons adobe-source-sa
          kdialog yakuake qt6-declarative pciutils polkit udisks2 pyside6 python-evdev xorg-xwayland
          qt6-webengine libx11 msitools qt6-multimedia qt6-multimedia-ffmpeg qt6-imageformats
          cabextract 7zip ffmpeg)
-makedepends=(python librsvg imagemagick)
+makedepends=(python librsvg imagemagick ffmpeg)
 install=halcyon-branding.install
 _krohnkite=0.9.9.2
 _otvdm=0.9.0
@@ -86,7 +86,7 @@ package() {
     done
     install -Dm644 "$startdir/etc/sddm.conf.d/10-halcyon.conf" "$pkgdir/etc/sddm.conf.d/10-halcyon.conf"
     for f in kwinrc plasmarc kcminputrc ksplashrc kscreenlockerrc konsolerc \
-             fastfetch/config.jsonc autostart/halcyon-yakuake.desktop autostart/halcyon-autoplay.desktop autostart/halcyon-screensaver.desktop autostart/halcyon-osk.desktop autostart/halcyon-gadgets.desktop autostart/halcyon-welcome.desktop \
+             fastfetch/config.jsonc autostart/halcyon-yakuake.desktop autostart/halcyon-autoplay.desktop autostart/halcyon-screensaver.desktop autostart/halcyon-osk.desktop autostart/halcyon-gadgets.desktop autostart/halcyon-welcome.desktop plasma_workspace.notifyrc \
              plasma-workspace/env/halcyon-shortcuts.sh; do
         install -Dm644 "$startdir/etc/xdg/$f" "$pkgdir/etc/xdg/$f"
     done
@@ -147,6 +147,15 @@ package() {
     _sfx=$(PYTHONPATH="$startdir/../games" python3 -c 'from halcyon_games import sfx; print(sfx.VERSION)')
     for _t in games mediacenter; do
         PYTHONPATH="$startdir/../games" python3 -m halcyon_games.sfx $_t "$share/halcyon-games/sounds/$_sfx-$_t"
+    done
+
+    # Desktop sound theme (logon, notices, errors, devices...), compressed to Ogg Vorbis.
+    python3 "$startdir/../tools/gen_sounds.py" "$srcdir/sounds"
+    install -Dm644 "$srcdir/sounds/index.theme" "$share/sounds/halcyon/index.theme"
+    install -d "$share/sounds/halcyon/stereo"
+    for _w in "$srcdir"/sounds/stereo/*.wav; do
+        ffmpeg -loglevel error -y -i "$_w" -c:a libvorbis -q:a 5 \
+            "$share/sounds/halcyon/stereo/$(basename "${_w%.wav}").oga"
     done
     install -Dm644 "$startdir/udev/70-halcyon-uinput.rules" "$pkgdir/usr/lib/udev/rules.d/70-halcyon-uinput.rules"
     install -Dm644 "$startdir/udev/halcyon-uinput.conf" "$pkgdir/usr/lib/modules-load.d/halcyon-uinput.conf"
