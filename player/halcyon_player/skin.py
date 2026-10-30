@@ -212,8 +212,14 @@ class Element:
         if h is not None:
             self.height = int(h)
         new = self.size()
-        dw, dh = new.width() - old.width(), new.height() - old.height()
-        if (dw or dh) and old.width() >= 0 and old.height() >= 0:
+        # Children re-anchor only when an element that already had a size changes
+        # size. An element getting its first size (a container whose width is
+        # "jscript:view.width", evaluated after load) goes from 0: its children
+        # were laid out for the final size already, so stretching them by the
+        # whole width overshoots (NVIDIA's display panel ran past the window).
+        dw = new.width() - old.width() if old.width() > 0 else 0
+        dh = new.height() - old.height() if old.height() > 0 else 0
+        if dw or dh:
             for c in self.children:
                 c.anchor(dw, dh)
 
