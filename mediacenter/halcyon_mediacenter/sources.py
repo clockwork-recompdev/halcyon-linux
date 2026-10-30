@@ -18,6 +18,21 @@ class SourceError(Exception):
     pass
 
 
+def _iso_time(s):
+    """Jellyfin's ISO dates -> epoch seconds (0 if missing)."""
+    if not s:
+        return 0
+    from datetime import datetime
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00")[:26] + s[-6:] if "+" in s[-6:] else
+                                      s.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        try:
+            return datetime.fromisoformat(s[:19]).timestamp()
+        except ValueError:
+            return 0
+
+
 # ---------------------------------------------------------------- Jellyfin ---
 class JellyfinSource:
     name = "jellyfin"
@@ -63,9 +78,11 @@ class JellyfinSource:
             "played": bool(ud.get("Played")), "number": i.get("IndexNumber"),
             "season_number": i.get("ParentIndexNumber"), "series": i.get("SeriesName", ""),
             "series_id": i.get("SeriesId"),
+            "genres": i.get("Genres") or [], "added": _iso_time(i.get("DateCreated")),
         }
 
-    FIELDS = "Overview,ProductionYear,RunTimeTicks,CommunityRating,OfficialRating,UserData,ImageTags,BackdropImageTags"
+    FIELDS = ("Overview,ProductionYear,RunTimeTicks,CommunityRating,OfficialRating,UserData,ImageTags,"
+              "BackdropImageTags,Genres,DateCreated")
 
     def _items(self, params):
         d = self._req(f"/Users/{self.c.user_id}/Items", dict(params, Fields=self.FIELDS))
@@ -154,6 +171,7 @@ class PlexSource:
             "played": bool(i.get("viewCount")), "number": i.get("index"),
             "season_number": i.get("parentIndex"), "series": i.get("grandparentTitle", ""),
             "series_id": i.get("grandparentRatingKey"),
+            "genres": [g.get("tag") for g in i.get("Genre") or [] if g.get("tag")], "added": i.get("addedAt") or 0,
             "_part": ((i.get("Media") or [{}])[0].get("Part") or [{}])[0].get("key"),
         }
 

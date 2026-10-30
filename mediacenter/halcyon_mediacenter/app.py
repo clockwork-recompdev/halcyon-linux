@@ -27,6 +27,11 @@ from PySide6.QtWidgets import (QApplication, QDialog, QDialogButtonBox, QFormLay
 from . import sources as S
 
 APP = "Halcyon Media Center"
+# Gallery sort row: label, key, newest/biggest first?
+PIVOTS = (("title", lambda i: i["title"].lower(), False),
+          ("genre", lambda i: ((i.get("genres") or ["~"])[0].lower(), i["title"].lower()), False),
+          ("year", lambda i: (-int(i.get("year") or 0), i["title"].lower()), False),
+          ("date added", lambda i: -(i.get("added") or 0), False))
 FONT = "Noto Sans"
 WHITE = QColor("#ffffff")
 SOFT = QColor(200, 222, 255, 200)
@@ -198,8 +203,8 @@ class MediaCenter(QWidget):
         self.error = ""
         self.stack = []                 # screens to go back to
         self.screen = "start"
-        self.menu = 1                   # start menu row
-        self.tile = {0: 0, 1: 0, 2: 0}  # focused tile per row
+        self.menu = 2                   # start menu row (movies)
+        self.tile = {0: 0, 1: 0, 2: 0, 3: 0}  # focused tile per row
         self.grid = 0                   # focus in a poster gallery
         self.items = []                 # what the gallery shows
         self.title = ""
@@ -213,9 +218,15 @@ class MediaCenter(QWidget):
         self.hits = []
         self.trans = 1.0
         self._from = None
-        self._anim = QVariantAnimation(self, startValue=0.0, endValue=1.0, duration=260,
+        self._dir = 1                   # 1 going in, -1 going back
+        self._anim = QVariantAnimation(self, startValue=0.0, endValue=1.0, duration=380,
                                        easingCurve=QEasingCurve.OutCubic)
         self._anim.valueChanged.connect(self._tick)
+        # Smoothly animated positions (menu row, strip and grid scroll, episode list).
+        self.smooth = {}                # name -> [from, to, start time, duration]
+        self._frame = QTimer(self, interval=16, timeout=self._animate)
+        self.pivot = 0                  # gallery sort: title / genre / year / date added
+        self.on_pivots = False          # focus on the sort row
         self.pop = 1.0
         self._pop = QVariantAnimation(self, startValue=0.0, endValue=1.0, duration=160,
                                       easingCurve=QEasingCurve.OutCubic)
@@ -265,7 +276,8 @@ class MediaCenter(QWidget):
             self.data = data
         self.error = err
         if self.screen == "gallery":
-            self.items = self.data["movies"] if self.title == "movie library" else self.data["shows"]
+            self.items = {"movie library": self.data["movies"], "tv library": self.data["shows"]}.get(
+                self.title, self.data["movies"] + self.data["shows"])
         self.update()
 
     def rows(self):
@@ -277,7 +289,8 @@ class MediaCenter(QWidget):
         movies += [(i["title"], i, "item") for i in self.data["resume"] if i["kind"] == "movie"]
         movies += [(i["title"], i, "item") for i in self.data["recent_movies"][:8]]
         tasks = [("settings", None, "settings"), ("refresh", None, "refresh"), ("close", None, "close")]
-        return [("tv", tv), ("movies", movies), ("tasks", tasks)]
+        library = [("all media", None, "all"), ("movie library", None, "movies"), ("tv library", None, "tv")]
+        return [("library", library), ("tv", tv), ("movies", movies), ("tasks", tasks)]
 
     # --- navigation
     def sound(self, name):
@@ -285,7 +298,8 @@ class MediaCenter(QWidget):
             self.sfx.play(name)
 
     def go(self, screen, back=False):
-        self._from = self.grab()
+        self._from = self.content_layer()
+        self._dir = -1 if back else 1
         self.trans = 0.0
         self._anim.stop()
         self._anim.start()
@@ -293,10 +307,11 @@ class MediaCenter(QWidget):
             self.stack.append(self._state())
         self.screen = screen
         self.button = 0
+        self.on_pivots = False
         self.update()
 
     def _state(self):
-        return dict(screen=self.screen, items=self.items, title=self.title, grid=self.grid,
+        return dict(screen=self.screen, items=self.items, title=self.title, grid=self.grid, pivot=self.pivot,
                     series=self.series, seasons=self.seasons, season=self.season, episodes=self.episodes,
                     ep=self.ep, detail=self.detail, button=self.button)
 
@@ -305,13 +320,44 @@ class MediaCenter(QWidget):
             return
         self.sound("back")
         st = self.stack.pop()
-        self._from = self.grab()
+        self._from = self.content_layer()
+        self._dir = -1
         self.trans = 0.0
         self._anim.stop()
         self._anim.start()
         for k, v in st.items():
             setattr(self, k, v)
+        self.on_pivots = False
+        self.snap_scrolls()
         self.update()
+
+    # --- smooth values
+    def ease_to(self, name, target, ms=260):
+        cur = self.val(name, target)
+        if abs(cur - target) < 1e-3:
+            self.smooth[name] = [target, target, 0, 0]
+            return
+        self.smooth[name] = [cur, float(target), time.monotonic(), ms / 1000]
+        if not self._frame.isActive():
+            self._frame.start()
+
+    def val(self, name, default=0.0):
+        a = self.smooth.get(name)
+        if a is None:
+            self.smooth[name] = [default, default, 0, 0]
+            return default
+        f, t, t0, d = a
+        if d <= 0:
+            return t
+        x = min(1.0, (time.monotonic() - t0) / d)
+        return f + (t - f) * (1 - (1 - x) ** 3)
+
+    def _animate(self):
+        now = time.monotonic()
+        busy = any(d > 0 and now - t0 < d for _f, _t, t0, d in self.smooth.values())
+        self.update()
+        if not busy:
+            self._frame.stop()
 
     def _tick(self, v):
         self.trans = v
@@ -336,12 +382,23 @@ class MediaCenter(QWidget):
                 n = max(0, min(len(tiles) - 1, self.tile[self.menu] + dx))
                 moved, self.tile[self.menu] = n != self.tile[self.menu], n
         elif sc == "gallery":
-            rows = 2
-            n = self.grid + (dx * rows if dx else dy)
-            if dy and (self.grid % rows + dy) not in range(rows):
-                n = self.grid
-            n = max(0, min(len(self.items) - 1, n))
-            moved, self.grid = n != self.grid, n
+            rows = self.grid_rows()
+            if self.on_pivots:
+                if dx:
+                    n = max(0, min(len(PIVOTS) - 1, self.pivot + dx))
+                    moved = n != self.pivot
+                    if moved:
+                        self.set_pivot(n)
+                elif dy > 0:
+                    self.on_pivots, moved = False, True
+            elif dy < 0 and self.grid % rows == 0:
+                self.on_pivots, moved = True, True       # up from the top row: the sort row
+            else:
+                n = self.grid + (dx * rows if dx else dy)
+                if dy and (self.grid % rows + dy) not in range(rows):
+                    n = self.grid
+                n = max(0, min(len(self.view_items()) - 1, n))
+                moved, self.grid = n != self.grid, n
         elif sc == "series":
             if dx and self.seasons:
                 n = max(0, min(len(self.seasons) - 1, self.season + dx))
@@ -360,7 +417,61 @@ class MediaCenter(QWidget):
         self.sound("move" if moved else "bump")
         if moved:
             self.bump()
+            self.follow()
         self.update()
+
+    def follow(self):
+        """Glide menus and lists toward the new focus."""
+        self.ease_to("menu", self.menu)
+        self.ease_to(f"strip{self.menu}", max(0, self.tile.get(self.menu, 0) - 3))
+        if self.screen == "gallery" and self.items:
+            rows, vis = self.grid_rows(), self.grid_cols_visible()
+            col = self.grid // rows
+            cur = self.val("gscroll")
+            target = cur
+            if col < cur + 1:
+                target = col - 1
+            elif col > cur + vis - 2:
+                target = col - vis + 2
+            last = max(0, (len(self.view_items()) - 1) // rows - vis + 1)
+            self.ease_to("gscroll", max(0, min(target, last)), 300)
+        if self.screen == "series" and self.episodes:
+            vis = 8
+            self.ease_to("epscroll", max(0, min(self.ep - vis // 2, len(self.episodes) - vis)))
+
+    def snap_scrolls(self):
+        """Jump (no glide) to where the focus is, e.g. after going back."""
+        for k in ("menu", "gscroll", "epscroll", "strip0", "strip1", "strip2", "strip3"):
+            self.smooth.pop(k, None)
+        self.follow()
+        for v in self.smooth.values():
+            v[0], v[3] = v[1], 0
+
+    # --- gallery helpers
+    def grid_rows(self):
+        H = self.height()
+        return max(2, int((H * 0.64) // (H * 0.19 + H * 0.018)))
+
+    def grid_cols_visible(self):
+        H = self.height()
+        return max(1, int((self.width() * 0.88) // (H * 0.19 * self.POSTER + H * 0.018)))
+
+    def set_pivot(self, n):
+        items = self.view_items()
+        keep = items[self.grid] if items else None
+        self.pivot = n
+        items = self.view_items()
+        self.grid = items.index(keep) if keep in items else 0
+        self.smooth.pop("gscroll", None)
+        self.follow()
+
+    def view_items(self):
+        key = (id(self.items), len(self.items), self.pivot)
+        if getattr(self, "_sorted_key", None) != key:
+            _label, by, rev = PIVOTS[self.pivot]
+            self._sorted = sorted(self.items, key=by, reverse=rev)
+            self._sorted_key = key
+        return self._sorted
 
     def activate(self):
         sc = self.screen
@@ -370,8 +481,11 @@ class MediaCenter(QWidget):
                 return
             cap, item, action = tiles[self.tile[self.menu]]
             self.run_action(action, item)
+        elif sc == "gallery" and self.on_pivots:
+            self.on_pivots = False
+            self.update()
         elif sc == "gallery" and self.items:
-            self.open_item(self.items[self.grid])
+            self.open_item(self.view_items()[self.grid])
         elif sc == "series" and self.episodes:
             self.open_item(self.episodes[self.ep])
         elif sc == "details":
@@ -386,6 +500,9 @@ class MediaCenter(QWidget):
             self.go("gallery")
         elif action == "tv":
             self.items, self.title, self.grid = self.data["shows"], "tv library", 0
+            self.go("gallery")
+        elif action == "all":
+            self.items, self.title, self.grid = self.data["movies"] + self.data["shows"], "all media", 0
             self.go("gallery")
         elif action == "item":
             self.open_item(item)
@@ -435,6 +552,7 @@ class MediaCenter(QWidget):
         for e in self.episodes:
             e["_src"] = self.series["_src"]
         self.ep = next((i for i, e in enumerate(self.episodes) if not e["played"]), 0)
+        self.smooth.pop("epscroll", None)
         self.update()
 
     def buttons(self):
@@ -666,6 +784,22 @@ class MediaCenter(QWidget):
                   Qt.AlignCenter | Qt.TextWordWrap)
 
     # --- screens
+    def content_layer(self, record=False):
+        """The current screen's content (no background, no top bar) as a picture.
+        record=True keeps its click areas (for the screen being shown)."""
+        pm = QPixmap(self.size() * self.devicePixelRatioF())
+        pm.setDevicePixelRatio(self.devicePixelRatioF())
+        pm.fill(Qt.transparent)
+        q = QPainter(pm)
+        q.setRenderHint(QPainter.Antialiasing)
+        q.setRenderHint(QPainter.SmoothPixmapTransform)
+        hits = self.hits
+        getattr(self, "paint_" + self.screen)(q, self.width(), self.height())
+        if not record:
+            self.hits = hits
+        q.end()
+        return pm
+
     def paintEvent(self, _e):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
@@ -673,41 +807,65 @@ class MediaCenter(QWidget):
         self.hits = []
         W, H = self.width(), self.height()
         self.background(p, W, H)
-        getattr(self, "paint_" + self.screen)(p, W, H)
-        self.chrome(p, W, H)
         if self._from is not None and self.trans < 1:
-            p.setOpacity(1 - self.trans)
-            p.drawPixmap(0, 0, self._from)
+            # Media Center's zoom: going in, the old screen swells and fades while
+            # the new one settles from slightly small; going back, the reverse.
+            t = self.trans
+            new = self.content_layer(record=True)
+
+            def draw(pm, scale, alpha):
+                w, h = W * scale, H * scale
+                p.setOpacity(max(0.0, min(1.0, alpha)))
+                p.drawPixmap(QRectF((W - w) / 2, (H - h) / 2, w, h), pm, QRectF(pm.rect()))
+            out_t = min(1.0, t / 0.6)
+            draw(self._from, 1 + 0.08 * out_t * self._dir, 1 - out_t)
+            in_t = max(0.0, (t - 0.15) / 0.85)
+            draw(new, 1 - 0.06 * (1 - in_t) * self._dir, in_t)
             p.setOpacity(1)
+        else:
+            getattr(self, "paint_" + self.screen)(p, W, H)
+        self.chrome(p, W, H)
 
     def paint_start(self, p, W, H):
         rows = self.rows()
         x0 = int(W * 0.16)
         cy = int(H * 0.42)
         gap = int(H * 0.12)
+        mpos = self.val("menu", self.menu)
         for i, (label, tiles) in enumerate(rows):
-            off = i - self.menu
+            off = i - mpos                         # fractional while gliding
+            near = max(0.0, 1 - abs(off))          # 1 on the focused row
             # Rows below the open one make room for its strip and caption.
-            y = cy + off * gap + (int(H * 0.27) if off > 0 else 0)
-            focused = off == 0
-            f = font(H * (0.075 if focused else 0.05))
-            color = WHITE if focused else QColor(190, 215, 255, max(40, 170 - abs(off) * 60))
-            self.text(p, QRect(x0, y - int(H * 0.06), int(W * 0.5), int(H * 0.12)), label, f, color,
-                      Qt.AlignLeft | Qt.AlignVCenter, glow=focused)
-            self.hit(QRect(x0, y - int(H * 0.04), int(W * 0.3), int(H * 0.08)),
-                     lambda i=i: (setattr(self, "menu", i), self.bump(), self.update()))
-            if not focused:
+            y = cy + off * gap + max(0.0, min(1.0, off)) * H * 0.27
+            f = font(H * (0.05 + 0.025 * near))
+            alpha = int(max(40, 170 - abs(off) * 60) + (255 - 170) * near)
+            color = QColor(int(190 + 65 * near), int(215 + 40 * near), 255, min(255, alpha))
+            self.text(p, QRect(x0, int(y - H * 0.06), int(W * 0.5), int(H * 0.12)), label, f, color,
+                      Qt.AlignLeft | Qt.AlignVCenter, glow=near > 0.5)
+            self.hit(QRect(x0, int(y - H * 0.04), int(W * 0.3), int(H * 0.08)),
+                     lambda i=i: (setattr(self, "menu", i), self.bump(), self.follow(), self.update()))
+            if i != self.menu:
                 continue
-            # The focused row opens into a strip of tiles under its name.
+            # The focused row opens into a strip of tiles under its name, fading in as it arrives.
+            p.setOpacity(max(0.0, 1 - abs(off) * 1.5))
             th = int(H * 0.17)
-            ty = y + int(H * 0.05)
-            x = x0
-            first = max(0, self.tile[i] - 4)
-            for j in range(first, len(tiles)):
-                cap, item, action = tiles[j]
-                tw = int(th * self.POSTER) if item and item.get("poster") and item["kind"] != "episode" else \
-                    int(th * 1.55)
-                r = QRect(x, ty, tw, th)
+            ty = int(y + H * 0.05)
+            spos = self.val(f"strip{i}", max(0, self.tile[i] - 3))
+            widths = []
+            for cap, item, action in tiles:
+                widths.append(int(th * self.POSTER) if item and item.get("poster") and item["kind"] != "episode"
+                              else int(th * 1.55))
+            step = int(H * 0.018)
+            whole = int(spos)
+            x = x0 - sum(w + step for w in widths[:whole]) - (spos - whole) * (widths[whole] + step if whole < len(widths) else 0)
+            for j, (cap, item, action) in enumerate(tiles):
+                tw = widths[j]
+                if x + tw < 0:
+                    x += tw + step
+                    continue
+                if x > W:
+                    break
+                r = QRect(int(x), ty, tw, th)
                 foc = j == self.tile[i]
                 if foc:
                     k = 0.06 * self.pop
@@ -724,9 +882,8 @@ class MediaCenter(QWidget):
                                                         else item["title"]),
                               font(H * 0.03), SOFT)
                 self.hit(r, lambda j=j, i=i: self._tile_click(i, j))
-                x += tw + int(H * 0.018)
-                if x > W:
-                    break
+                x += tw + step
+            p.setOpacity(1)
         if not self.sources and not self.loading:
             self.text(p, QRect(x0, int(H * 0.86), int(W * 0.8), int(H * 0.05)),
                       "Sign in to Jellyfin or Plex: tasks › settings", font(H * 0.028), SOFT)
@@ -737,52 +894,92 @@ class MediaCenter(QWidget):
         else:
             self.menu, self.tile[i] = i, j
             self.bump()
+            self.follow()
             self.update()
 
     def paint_gallery(self, p, W, H):
-        self.text(p, QRect(int(W * 0.08), int(H * 0.1), int(W * 0.8), int(H * 0.09)), self.title,
-                  font(H * 0.06), WHITE, glow=True)
-        self.text(p, QRect(int(W * 0.08), int(H * 0.18), int(W * 0.8), int(H * 0.04)),
-                  "title", font(H * 0.026, QFont.Normal), GLOW)
-        if not self.items:
-            self.text(p, QRect(int(W * 0.08), int(H * 0.4), int(W * 0.8), int(H * 0.05)),
+        x0 = int(W * 0.06)
+        self.text(p, QRect(x0, int(H * 0.09), int(W * 0.8), int(H * 0.08)), self.title,
+                  font(H * 0.055), WHITE, glow=True)
+        # Sort row (Media Center's pivot): the current one lit, focusable from the top row.
+        px = x0
+        for i, (label, _k, _r) in enumerate(PIVOTS):
+            on = i == self.pivot
+            f = font(H * 0.028, QFont.Normal if on else QFont.Light)
+            w = QFontMetrics(f).horizontalAdvance(label) + int(W * 0.03)
+            r = QRect(px, int(H * 0.165), w, int(H * 0.045))
+            if on and self.on_pivots:
+                p.setPen(QPen(QColor(170, 220, 255, 200), 1))
+                p.setBrush(QColor(255, 255, 255, 30))
+                p.drawRoundedRect(QRectF(r).adjusted(-8, 2, -int(W * 0.015), -2), 4, 4)
+            self.text(p, r, label, f, GLOW if on else DIM)
+            self.hit(r, lambda i=i: (self.set_pivot(i), self.update()))
+            px += w
+        items = self.view_items()
+        if not items:
+            self.text(p, QRect(x0, int(H * 0.4), int(W * 0.8), int(H * 0.05)),
                       "Loading…" if self.loading else "Nothing here yet.", font(H * 0.035), SOFT)
             return
-        rows = 2
-        ph = int(H * 0.27)
+        rows = self.grid_rows()
+        ph = int(H * 0.19)
         pw = int(ph * self.POSTER)
-        gap = int(H * 0.025)
-        x0, y0 = int(W * 0.08), int(H * 0.26)
-        col = self.grid // rows
-        cols_vis = max(1, (W - x0) // (pw + gap))
-        first = max(0, col - cols_vis // 2)
-        for i in range(first * rows, len(self.items)):
-            c, r = i // rows - first, i % rows
-            x = x0 + c * (pw + gap)
+        gap = int(H * 0.018)
+        y0 = int(H * 0.25)
+        scroll = self.val("gscroll")
+        first = max(0, int(scroll) - 1)
+        label_fn = {1: lambda it: (it.get("genres") or ["other"])[0], 2: lambda it: str(it.get("year") or "—")}.get(
+            self.pivot)
+        last_label = None
+        if label_fn and first > 0:
+            last_label = label_fn(items[first * rows - 1])
+        focused_rect = None
+        for i in range(first * rows, len(items)):
+            c, r = i // rows, i % rows
+            x = x0 + (c - scroll) * (pw + gap)
             if x > W:
                 break
-            rect = QRect(x, y0 + r * (ph + gap), pw, ph)
-            foc = i == self.grid
-            if foc:
-                k = 0.08 * self.pop
-                rect = rect.adjusted(-int(pw * k / 2), -int(ph * k / 2), int(pw * k / 2), int(ph * k / 2))
-            self.poster(p, self.items[i], rect, foc)
+            rect = QRect(int(x), y0 + r * (ph + gap), pw, ph)
+            if label_fn and r == 0:
+                lab = label_fn(items[i])
+                if lab != last_label:            # a new genre / year starts in this column
+                    self.text(p, QRect(int(x), y0 - int(H * 0.035), int(W * 0.3), int(H * 0.03)), lab.lower(),
+                              font(H * 0.022, QFont.Normal), GLOW)
+                    last_label = lab
+            elif label_fn:
+                last_label = label_fn(items[i])
+            if i == self.grid and not self.on_pivots:
+                focused_rect = rect
+                continue
+            self.poster(p, items[i], rect, False)
             self.hit(rect, lambda i=i: self._grid_click(i))
-        it = self.items[self.grid]
+        if focused_rect is not None:
+            # Focused cover zooms over its neighbours.
+            k = 0.10 + 0.06 * self.pop
+            fr = focused_rect.adjusted(-int(pw * k / 2), -int(ph * k / 2), int(pw * k / 2), int(ph * k / 2))
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(0, 10, 40, 120))
+            p.drawRoundedRect(QRectF(fr).adjusted(-6, -4, 6, 10), 6, 6)
+            self.poster(p, items[self.grid], fr, True)
+            self.hit(fr, lambda: self._grid_click(self.grid))
+        it = items[min(self.grid, len(items) - 1)]
         meta = " · ".join(str(x) for x in (it["year"], it["rating"],
                                             f"{it['minutes']} min" if it["minutes"] else "",
+                                            ", ".join(it.get("genres", [])[:2]),
                                             f"★ {it['score']:.1f}" if isinstance(it.get("score"), (int, float)) else "")
                           if x)
-        y = y0 + rows * (ph + gap) + int(H * 0.02)
-        self.text(p, QRect(x0, y, int(W * 0.84), int(H * 0.06)), it["title"], font(H * 0.045), WHITE)
-        self.text(p, QRect(x0, y + int(H * 0.055), int(W * 0.84), int(H * 0.04)), meta, font(H * 0.026), SOFT)
+        y = y0 + rows * (ph + gap) + int(H * 0.01)
+        self.text(p, QRect(x0, y, int(W * 0.84), int(H * 0.055)), it["title"], font(H * 0.04), WHITE)
+        self.text(p, QRect(x0, y + int(H * 0.05), int(W * 0.84), int(H * 0.035)), meta, font(H * 0.024), SOFT)
+        self.text(p, QRect(x0, y + int(H * 0.05), int(W * 0.88), int(H * 0.035)),
+                  f"{self.grid + 1} of {len(items)}", font(H * 0.022), DIM, Qt.AlignRight | Qt.AlignVCenter)
 
     def _grid_click(self, i):
-        if i == self.grid:
+        if i == self.grid and not self.on_pivots:
             self.activate()
         else:
-            self.grid = i
+            self.grid, self.on_pivots = i, False
             self.bump()
+            self.follow()
             self.update()
 
     def paint_series(self, p, W, H):
@@ -813,11 +1010,15 @@ class MediaCenter(QWidget):
             self.text(p, QRect(x, int(H * 0.3), int(W * 0.5), int(H * 0.05)), "Loading…", font(H * 0.03), SOFT)
             return
         rh = int(H * 0.058)
-        vis = max(1, int(H * 0.5 // rh))
-        first = max(0, min(self.ep - vis // 2, len(self.episodes) - vis))
-        y = int(H * 0.28)
-        for i in range(first, min(len(self.episodes), first + vis)):
+        vis = 8
+        scroll = self.val("epscroll", max(0, min(self.ep - vis // 2, len(self.episodes) - vis)))
+        top = int(H * 0.28)
+        p.save()
+        p.setClipRect(QRect(x, top - 4, W - x, vis * rh + 8))
+        first = max(0, int(scroll))
+        for i in range(first, min(len(self.episodes), first + vis + 1)):
             e = self.episodes[i]
+            y = int(top + (i - scroll) * rh)
             r = QRect(x, y, int(W * 0.84) - x + int(W * 0.08), rh)
             foc = i == self.ep
             if foc:
@@ -838,7 +1039,8 @@ class MediaCenter(QWidget):
                 p.fillRect(QRect(r.left() + int(W * 0.045), r.bottom() - 3,
                                  int((r.width() - W * 0.17) * min(1, e["resume"] / e["duration"])), 3), GLOW)
             self.hit(r, lambda i=i: self._ep_click(i))
-            y += rh
+        p.restore()
+        y = top + vis * rh
         e = self.episodes[self.ep]
         if e.get("overview"):
             self.text(p, QRect(x, y + int(H * 0.02), int(W * 0.84) - x + int(W * 0.08), int(H * 0.16)),
@@ -849,6 +1051,7 @@ class MediaCenter(QWidget):
             self.activate()
         else:
             self.ep = i
+            self.follow()
             self.update()
 
     def paint_details(self, p, W, H):
