@@ -956,7 +956,8 @@ class ScriptHost:
         self.bindings = []       # (window, api, prop, expr, kind)
         self.anims = []
         self.anim_timer = QTimer(interval=16, timeout=self._step_anims)
-        self.last = {"playstate": None, "media": None, "mode": None, "video": False}
+        self.last = {"playstate": None, "media": None, "mode": None, "video": False, "status": None,
+                     "playlist": None}
         self.video = None
         self.loaded_scripts = set()
         self.eq_state = {"gains": [0.0] * 10, "preset": 0, "enabled": True}
@@ -1108,6 +1109,19 @@ class ScriptHost:
             self.fire_player("currentmediachange")
             self.fire_player("mediachange")
             self.fire_player("currentitemchange")
+        # status_onChange and currentPlaylist_onChange: skins like Energy Blue
+        # write their "now playing" text only from these.
+        status = {1: "Stopped", 2: "Paused", 3: "Playing", 10: "Ready"}.get(st, "Ready")
+        if status != self.last["status"] or media != self.last.get("status_media"):
+            self.last["status"], self.last["status_media"] = status, media
+            self.fire_player("statuschange")
+        try:
+            count = int(self.player.mpv.playlist_count or 0)
+        except Exception:
+            count = 0
+        if count != self.last["playlist"]:
+            self.last["playlist"] = count
+            self.fire_player("currentplaylistchange")
         has_video = bool(self.video and self.video.has_video())
         if has_video != self.last["video"]:
             self.last["video"] = has_video
