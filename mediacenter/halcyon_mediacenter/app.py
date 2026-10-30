@@ -251,7 +251,7 @@ class MediaCenter(QWidget):
         self.sfx = None
         try:
             from halcyon_games.sfx import Sounds
-            self.sfx = Sounds(self, volume=0.35)
+            self.sfx = Sounds(self, volume=0.35, theme="mediacenter")
         except Exception:
             pass
         self.pads = None
@@ -265,6 +265,7 @@ class MediaCenter(QWidget):
         # Opening: "start" fades in and the menu flies in (Media Center, December 2005).
         self.smooth["intro"] = [0.0, 0.0, 0, 0]
         QTimer.singleShot(150, lambda: self.ease_to("intro", 1.0, 1400))
+        QTimer.singleShot(150, lambda: self.sound("intro"))
 
     # --- data
     def reload(self):

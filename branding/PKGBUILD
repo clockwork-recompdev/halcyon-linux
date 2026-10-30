@@ -142,6 +142,11 @@ package() {
     # Game library + on-screen keyboard (types through uinput, opened to the seat user)
     install -d "$share/halcyon-games/halcyon_games"
     install -m644 "$startdir"/../games/halcyon_games/*.py "$share/halcyon-games/halcyon_games/"
+    # Interface sounds are synthesized; render them now so the first launch doesn't wait.
+    _sfx=$(PYTHONPATH="$startdir/../games" python3 -c 'from halcyon_games import sfx; print(sfx.VERSION)')
+    for _t in games mediacenter; do
+        PYTHONPATH="$startdir/../games" python3 -m halcyon_games.sfx $_t "$share/halcyon-games/sounds/$_sfx-$_t"
+    done
     install -Dm644 "$startdir/udev/70-halcyon-uinput.rules" "$pkgdir/usr/lib/udev/rules.d/70-halcyon-uinput.rules"
     install -Dm644 "$startdir/udev/halcyon-uinput.conf" "$pkgdir/usr/lib/modules-load.d/halcyon-uinput.conf"
 
