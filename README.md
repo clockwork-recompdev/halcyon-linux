@@ -144,6 +144,9 @@ title in mpv, disc menus in VLC, eject). Keyboard, remote or gamepad.
   `http://` goes through [Protoweb](https://protoweb.org)'s proxy (home: the iNode Gateway),
   Flash runs in the bundled Ruffle and Java applets in CheerpJ. Protoweb and live-web browsing
   keep separate profiles. Settings: `~/.config/halcyon/retro-browser.json`.
+- **Halcyon Mail** (`halcyon-mail`): Windows Live Mail-style e-mail for any IMAP/SMTP account. Server
+  settings are found automatically (built-in list, then Thunderbird's ISPDB); passwords go to the
+  system keyring (`secret-tool`); pictures stay blocked until asked for; new mail notifies.
 - **Halcyon Update** (`halcyon-update`): a Windows Update-style window for system, Halcyon, AUR
   and Flatpak updates, with history and a daily check.
 - **Welcome Center** (`halcyon-welcome`): Vista's first-run window - computer details and

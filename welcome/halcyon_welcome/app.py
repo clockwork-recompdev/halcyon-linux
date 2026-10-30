@@ -229,6 +229,10 @@ def tasks():
          "Movies, TV, music and pictures on the big screen, from your Jellyfin or Plex server, your Pictures "
          "folder, or a DVD or Blu-ray in the drive.", [("Open Media Center", ["halcyon-mediacenter"])],
          "extras"),
+        ("mail", "internet-mail", "Halcyon Mail",
+         "Your e-mail from Gmail, Outlook.com, Yahoo!, iCloud or any other account, in a classic Live Mail "
+         "window. Pictures in messages stay blocked until you ask for them.",
+         [("Open Mail", ["halcyon-mail"])], "extras"),
         ("messenger", "im-user", "Halcyon Messenger",
          "Chat with your Discord friends in a classic Messenger window.",
          [("Open Messenger", ["halcyon-messenger"])], "extras"),

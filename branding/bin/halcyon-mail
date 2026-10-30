@@ -1,0 +1,5 @@
+#!/bin/sh
+# Halcyon Mail: Windows Live Mail-style e-mail (IMAP/SMTP).
+here=/usr/share/halcyon-mail
+[ -d "$here" ] || here=$(dirname "$(readlink -f "$0")")/../../mail   # dev checkout
+PYTHONPATH=$here exec python3 -m halcyon_mail.app "$@"

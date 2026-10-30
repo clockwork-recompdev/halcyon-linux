@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Halcyon Mail
+GenericName=E-mail
+Comment=Read and send e-mail from Gmail, Outlook.com, Yahoo!, iCloud or any IMAP account
+Exec=halcyon-mail %u
+Icon=internet-mail
+Categories=Network;Email;
+MimeType=x-scheme-handler/mailto;
+Keywords=email;e-mail;mail;imap;smtp;live mail;outlook;gmail;
