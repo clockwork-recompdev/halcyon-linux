@@ -9,14 +9,14 @@ import time
 from pathlib import Path
 
 from PySide6.QtCore import (QEasingCurve, QEvent, QPoint, QPointF, QProcess, QProcessEnvironment, QRect, QRectF, QSize,
-                            Qt, QTimer, QVariantAnimation, Signal)
+                            Qt, QThread, QTimer, QVariantAnimation, Signal)
 from PySide6.QtGui import (QAction, QBrush, QColor, QFont, QFontMetrics, QIcon, QKeySequence, QLinearGradient,
                            QPainter, QPen, QPixmap, QRadialGradient, QShortcut)
 from PySide6.QtWidgets import (QApplication, QFileDialog, QFrame, QHBoxLayout, QHeaderView, QInputDialog, QLabel,
                                QLineEdit, QMenu, QMessageBox, QPushButton, QSizeGrip, QStackedWidget, QTabBar,
                                QToolButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
-from . import library, sfx, style
+from . import library, sfx, sgdb, style
 
 try:
     from .gamepad import Gamepads
@@ -225,6 +225,7 @@ class DesktopView(QWidget):
         self.show_hidden.toggled.connect(lambda _c: self.refill())
         m.addAction("Refresh library", lambda: self.l.reload(), QKeySequence("F5"))
         m.addAction("Big Picture mode", lambda: self.l.toggle_big(), QKeySequence("F11"))
+        m.addAction("SteamGridDB artwork…", lambda: self.l.set_sgdb_key())
         m.addAction("On-screen keyboard", show_keyboard)
         more.setMenu(m)
         bar.addWidget(more)
@@ -1344,6 +1345,25 @@ class BigView(QWidget):
         self._hints(p, W, H, [("A", "SELECT"), ("B", "BACK")])
 
 
+class ArtFetcher(QThread):
+    got = Signal(str, dict)
+    failed = Signal(str)
+
+    def __init__(self, key, games, parent):
+        super().__init__(parent)
+        self.key, self.games = key, list(games)
+
+    def run(self):
+        for g in self.games:
+            try:
+                art = sgdb.fetch(self.key, g)
+            except sgdb.SGDBError as e:
+                self.failed.emit(str(e))
+                return
+            if art:
+                self.got.emit(g.id, art)
+
+
 # ---------------------------------------------------------------- window ---
 class Launcher(QWidget):
     EDGE = 5
@@ -1388,8 +1408,45 @@ class Launcher(QWidget):
     def reload(self):
         self.games = library.load(self.cfg)
         self.by_id = {g.id: g for g in self.games}
+        todo = sgdb.apply_cached(self.games)
         self.desktop.refill()
         self.big.refill()
+        self.fetch_art(todo)
+
+    def fetch_art(self, games):
+        """Missing banners/backgrounds/logos from SteamGridDB, in the background."""
+        key = self.cfg.get("sgdb_key") or os.environ.get("STEAMGRIDDB_KEY")
+        if not key or not games or getattr(self, "_art", None) and self._art.isRunning():
+            return
+        self._art = ArtFetcher(key, games, self)
+        self._art.got.connect(self._art_ready)
+        self._art.failed.connect(lambda msg: self.desktop.status.setText(msg))
+        self._art.start()
+
+    def _art_ready(self, gid, art):
+        g = self.by_id.get(gid)
+        if g is None:
+            return
+        for field, path in art.items():
+            setattr(g, field, path)
+        _scaled.clear()
+        self.desktop.details.set_game(self.desktop.current())
+        self.big.update()
+
+    def set_sgdb_key(self):
+        key, ok = QInputDialog.getText(
+            self, "SteamGridDB artwork",
+            "Halcyon Games can download banners, backgrounds and logos for games\n"
+            "that don't have their own (Big Picture uses them).\n\n"
+            "Make a free API key at steamgriddb.com → Preferences → API, and paste it here:",
+            QLineEdit.Normal, self.cfg.get("sgdb_key", ""))
+        if not ok:
+            return
+        self.cfg["sgdb_key"] = key.strip()
+        self.save()
+        if key.strip():
+            self.desktop.status.setText("Fetching artwork from SteamGridDB…")
+            self.fetch_art(sgdb.apply_cached(self.games))
 
     def save(self):
         library.save_config(self.cfg)
