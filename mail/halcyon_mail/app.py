@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QColorDialog, QComboBox,
                                QToolButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from . import backend as B
+from . import contacts as C
 
 APP = "Halcyon Mail"
 TEXT = "#1e395b"
@@ -535,16 +536,20 @@ class Compose(QMainWindow):
         for a in main.cfg["accounts"]:
             self.from_box.addItem(formataddr((a.get("name") or "", a["email"])), a["id"])
         self.from_box.setCurrentIndex(max(0, self.from_box.findData(acct["id"])))
-        self.to = QLineEdit(to)
-        self.cc = QLineEdit(cc)
-        self.bcc = QLineEdit()
+        self.to = C.RecipientEdit(main.book, to)
+        self.cc = C.RecipientEdit(main.book, cc)
+        self.bcc = C.RecipientEdit(main.book)
         self.subject = QLineEdit(subject)
         self.subject.textChanged.connect(lambda t: self.setWindowTitle(t or "New Message"))
         if len(main.cfg["accounts"]) > 1:
             form.addRow("From:", self.from_box)
-        form.addRow("To:", self.to)
-        form.addRow("Cc:", self.cc)
-        form.addRow("Bcc:", self.bcc)
+        # Live Mail's To / Cc / Bcc buttons open the contact picker.
+        for label, box in (("To:", self.to), ("Cc:", self.cc), ("Bcc:", self.bcc)):
+            b = QPushButton(label)
+            b.setFixedWidth(52)
+            b.setToolTip("Choose from your contacts")
+            b.clicked.connect(self.pick)
+            form.addRow(b, box)
         form.addRow("Subject:", self.subject)
         lay.addLayout(form)
         self.files = QLabel(wordWrap=True)
@@ -685,6 +690,13 @@ class Compose(QMainWindow):
         acct = self.account()
         self.main.send(acct, msg, self.sent_result, self.reply_to)
 
+    def pick(self):
+        d = C.Picker(self, self.main.book)
+        if d.exec():
+            for key, box in (("to", self.to), ("cc", self.cc), ("bcc", self.bcc)):
+                if d.picked[key]:
+                    box.add(d.picked[key])
+
     def sent_result(self, ok, err):
         self.send_btn.setEnabled(True)
         if err:
@@ -692,6 +704,8 @@ class Compose(QMainWindow):
             QMessageBox.warning(self, APP, f"The message couldn't be sent.\n\n{friendly(err)}")
             return
         self.sent = True
+        # People you write to join Contacts by themselves.
+        self.main.book.collect(", ".join(x for x in (self.to.text(), self.cc.text(), self.bcc.text()) if x))
         self.close()
 
     def closeEvent(self, e):
@@ -717,6 +731,8 @@ class Mail(QMainWindow):
         self.setWindowIcon(QIcon.fromTheme("internet-mail", QIcon.fromTheme("mail-message")))
         self.resize(1180, 760)
         self.cfg = B.load_config()
+        self.book = C.Book()
+        self.contacts_win = None
         self.workers = {}
         self.folders = {}          # acct id -> [folder dicts]
         self.messages = []         # current list
@@ -745,6 +761,8 @@ class Mail(QMainWindow):
         self.junk_btn = bar.add("Junk", "mail-mark-junk", self.junk, tip="Move to Junk e-mail")
         bar.sep()
         self.sync_btn = bar.add("Sync", "mail-send-receive", self.sync, tip="Send/receive (F5)")
+        bar.sep()
+        bar.add("Contacts", "x-office-address-book", self.show_contacts, tip="Contacts (Ctrl+Shift+C)")
         bar.lay.addStretch(1)
         menu = QMenu(self)
         menu.addAction("Add an e-mail account…", self.add_account)
@@ -798,7 +816,8 @@ class Mail(QMainWindow):
 
         for key, fn in (("Ctrl+R", self.reply), ("Ctrl+Shift+R", lambda: self.reply(all_=True)),
                         ("Ctrl+F", self.forward), ("Delete", self.delete), ("F5", self.sync),
-                        ("Ctrl+E", self.find.setFocus), ("Ctrl+M", self.sync)):
+                        ("Ctrl+E", self.find.setFocus), ("Ctrl+M", self.sync),
+                        ("Ctrl+Shift+C", self.show_contacts)):
             a = QAction(self, shortcut=QKeySequence(key))
             a.triggered.connect(fn)
             self.addAction(a)
@@ -1152,6 +1171,21 @@ class Mail(QMainWindow):
         if self.current:
             return self.acct(self.current[0])
         return self.cfg["accounts"][0] if self.cfg["accounts"] else None
+
+    def show_contacts(self):
+        if self.contacts_win is None:
+            self.contacts_win = C.ContactsWindow(self.book, CommandBar, self)
+            self.contacts_win.write_to.connect(self.write_to)
+        self.book.load()
+        self.contacts_win.fill()
+        self.contacts_win.show()
+        self.contacts_win.raise_()
+
+    def write_to(self, addr):
+        a = self.default_account()
+        if not a:
+            return self.add_account()
+        Compose(self, a, to=addr + ", ").show()
 
     def new_message(self):
         a = self.default_account()
