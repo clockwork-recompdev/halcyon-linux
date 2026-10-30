@@ -22,6 +22,8 @@ QDialog, QMessageBox, QInputDialog {{ background: {BG}; }}
 #cap {{ background: {BG}; {RAISED} min-width: 16px; max-width: 16px; min-height: 14px; max-height: 14px;
         padding: 0; font-size: 8pt; font-weight: bold; }}
 #cap:pressed {{ {SUNKEN} }}
+#bigpic {{ padding: 1px 10px; font-size: 8pt; font-weight: bold; letter-spacing: 1px; }}
+#bigpic:hover {{ color: {GOLD}; }}
 
 QPushButton, QToolButton {{ background: {BG}; {RAISED} padding: 4px 14px; }}
 QPushButton:hover, QToolButton:hover {{ color: #FFFFFF; }}
