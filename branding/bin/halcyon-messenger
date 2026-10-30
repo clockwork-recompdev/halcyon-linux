@@ -1,0 +1,3 @@
+#!/bin/sh
+# Halcyon Messenger: a Live Messenger 2009-style client for your Discord friends.
+PYTHONPATH=/usr/share/halcyon-messenger exec python3 -m halcyon_messenger.app "$@"

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Halcyon Messenger
+GenericName=Instant Messenger
+Comment=Chat with your Discord friends, Live Messenger style
+Exec=halcyon-messenger
+Icon=internet-chat
+Categories=Network;InstantMessaging;Chat;
+Keywords=messenger;msn;wlm;discord;chat;im;
+StartupWMClass=halcyon-messenger
