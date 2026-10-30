@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=Halcyon Media Center
+GenericName=Media Center
+Comment=Movies and TV from Jellyfin and Plex, made for the couch
+Exec=halcyon-mediacenter
+Icon=media-playback-start
+Categories=AudioVideo;Video;Player;
+Keywords=media center;jellyfin;plex;movies;tv;10-foot;remote;
+Actions=window;
+
+[Desktop Action window]
+Name=Open in a Window
+Exec=halcyon-mediacenter --window

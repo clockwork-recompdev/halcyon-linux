@@ -1,0 +1,5 @@
+#!/bin/sh
+# Halcyon Media Center: Movies & TV from Jellyfin/Plex, 10-foot Media Center style.
+# Shares sign-in with Halcyon Media Player and gamepad/sound code with Halcyon Games.
+PYTHONPATH=/usr/share/halcyon-mediacenter:/usr/share/halcyon-player:/usr/share/halcyon-games \
+    exec python3 -m halcyon_mediacenter.app "$@"
