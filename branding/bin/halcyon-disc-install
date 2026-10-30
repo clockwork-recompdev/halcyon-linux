@@ -137,6 +137,12 @@ Many games got an official patch later that removes the disc check; install
 that after setup if the game won't start." --continue-label "Install anyway" || exit 0
 fi
 
+# Known-broken old installers: run a fixed copy of their MSI instead.
+if fixed=$(msi_quirk_fix "$mp" "$STATE/msi-fix"); then
+    cmd=(wine msiexec /i "Z:${fixed//\//\\}")
+    rel=.
+fi
+
 # ---------------------------------------------------------- run it ---
 echo $$ > "$LOCK"
 trap 'rm -f "$LOCK"' EXIT

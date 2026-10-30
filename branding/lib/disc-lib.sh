@@ -85,3 +85,36 @@ disc_point_d() {  # disc_point_d CDLINK: aim the Windows environment's D: drive 
         rm -f "$prefix/dosdevices/d::"
     fi
 }
+
+# ------------------------------------------------- old installer quirks ---
+# Some 2001-era MSI installers refuse to run for reasons that don't apply
+# under Wine. For those, run a copy of the MSI with the offending UI checks
+# switched off. Keyed by the MSI's ProductName; values are InstallUISequence
+# actions to skip.
+declare -A MSI_SKIP=(
+    # "can't be installed on Windows XP 64-bit Edition" (Wine is 64-bit), and a
+    # video memory warning: Wine stores 4 GB+ cards' memory in a 32-bit value as 0.
+    ["Microsoft Plus! for Windows XP"]="CheckCPUType VidChkScript"
+)
+
+msi_quirk_fix() {  # msi_quirk_fix DISC_ROOT WORKDIR: prints the patched MSI's path, if one is needed
+    local root=$1 work=$2 msi name skip e
+    msi=$(find "$root" -maxdepth 1 -iname '*.msi' -print -quit)
+    [[ -n $msi ]] && command -v msiinfo >/dev/null || return 1
+    name=$(msiinfo export "$msi" Property 2>/dev/null | awk -F'\t' '$1 == "ProductName" { sub(/\r$/, "", $2); print $2 }')
+    skip=${MSI_SKIP[$name]:-}
+    [[ -n $skip ]] || return 1
+    rm -rf "$work" && mkdir -p "$work"
+    # The MSI finds its files next to itself: link the disc's contents in.
+    for e in "$root"/*; do
+        [[ $e -ef $msi ]] || ln -s "$e" "$work/$(basename "$e")"
+    done
+    cp "$msi" "$work/setup.msi" && chmod u+w "$work/setup.msi"
+    msiinfo export "$msi" InstallUISequence > "$work/InstallUISequence.idt" 2>/dev/null || return 1
+    awk -F'\t' -v OFS='\t' -v skip=" $skip " 'index(skip, " " $1 " ") { $2 = "0" } { print }' \
+        "$work/InstallUISequence.idt" > "$work/seq.tmp" && mv "$work/seq.tmp" "$work/InstallUISequence.idt"
+    # Wine's own msidb writes the table (msitools mangles this MSI's string pool).
+    (cd "$work" && wine msidb -d "setup.msi" -f "." -i InstallUISequence.idt) >/dev/null 2>&1 || return 1
+    wineserver -w
+    echo "$work/setup.msi"
+}
