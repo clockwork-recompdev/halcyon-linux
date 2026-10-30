@@ -8,3 +8,8 @@ Icon=multimedia-player
 Categories=AudioVideo;Audio;Video;Player;
 MimeType=audio/mpeg;audio/flac;audio/ogg;audio/x-vorbis+ogg;audio/opus;audio/x-wav;audio/mp4;audio/aac;audio/x-ms-wma;video/mp4;video/x-matroska;video/webm;video/x-msvideo;video/x-ms-wmv;video/quicktime;
 Keywords=music;mp3;flac;video;wmp;skin;winamp;
+Actions=Library;
+
+[Desktop Action Library]
+Name=Music Library
+Exec=halcyon-player --library

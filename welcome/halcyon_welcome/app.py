@@ -243,7 +243,9 @@ def tasks():
          "Browse the restored web of the 1990s and 2000s through Protoweb, with Flash and Java applets that "
          "work again.", [("Open Navigator", ["halcyon-navigator"])], "extras"),
         ("player", "multimedia-player", "Halcyon Player",
-         "A music player with the classic skins.", [("Open Player", ["halcyon-player"])], "extras"),
+         "Your music library in a Windows Media Player 11-style window - albums, artists, playlists - "
+         "or a classic Windows Media Player skin.",
+         [("Music library", ["halcyon-player", "--library"]), ("Skin mode", ["halcyon-player"])], "extras"),
         ("gadgets", "preferences-desktop-gadgets", "Desktop gadgets",
          "Put a clock, the weather, a slide show and more on your desktop.",
          [("Show gadgets", ["halcyon-gadgets"])], "extras"),

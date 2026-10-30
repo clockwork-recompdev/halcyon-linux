@@ -146,6 +146,10 @@ title in mpv, disc menus in VLC, eject). Keyboard, remote or gamepad.
   keep separate profiles. QuickTime, RealPlayer and Windows Media embeds (and background MIDI)
   become click-to-play boxes that open in mpv, through Protoweb when it's on.
   Settings: `~/.config/halcyon/retro-browser.json`.
+- **Halcyon Player library** (`halcyon-player --library`): Windows Media Player 11-style full mode -
+  black glass Now Playing / Library / Rip / Burn tabs, Artist / Album / Songs / Genre / Year views with
+  album art tiles (embedded or folder.jpg, via mutagen), a list pane and saved playlists, and the round
+  play button transport bar. "Skin mode" hands the song to the skinned player and back.
 - **Halcyon Mail** (`halcyon-mail`): Windows Live Mail-style e-mail for any IMAP/SMTP account. Server
   settings are found automatically (built-in list, then Thunderbird's ISPDB); passwords go to the
   system keyring (`secret-tool`); pictures stay blocked until asked for; new mail notifies.

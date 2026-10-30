@@ -72,6 +72,7 @@ swayidle
 # Media player
 pyside6
 python-mpv
+python-mutagen
 mpv
 pacman-contrib
 libnotify

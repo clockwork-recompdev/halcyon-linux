@@ -359,8 +359,18 @@ class SkinWindow(QWidget):
         self.session.window_closed(self)
         super().closeEvent(e)
 
+    def library_mode(self):
+        """Full mode: the Windows Media Player 11-style library window."""
+        import subprocess
+        self.player.stop()
+        subprocess.Popen([sys.executable, "-m", "halcyon_player.app", "--library"], start_new_session=True,
+                         env=dict(os.environ))
+        QApplication.quit()
+
     def context_menu(self, at):
         m = QMenu(self)
+        m.addAction("Switch to Library", self.library_mode)
+        m.addSeparator()
         m.addAction("Open files…", self.open_files)
         m.addAction("Open URL…", self.open_url)
         self.jellyfin_menu(m.addMenu("Jellyfin"))
@@ -750,8 +760,12 @@ def main(argv=None):
     ap.add_argument("--skin", help="skin file (.wmz) or folder")
     ap.add_argument("--cd", action="store_true", help="play the audio CD in the drive")
     ap.add_argument("--rip", action="store_true", help="rip the audio CD in the drive")
+    ap.add_argument("--library", action="store_true", help="open the music library (full mode)")
     ap.add_argument("media", nargs="*")
     args = ap.parse_args(argv)
+    if args.library:
+        from . import library
+        sys.exit(library.main())
     app = QApplication(sys.argv[:1])
     app.setApplicationName("Halcyon Media Player")
     app.jellyfin = Jellyfin()

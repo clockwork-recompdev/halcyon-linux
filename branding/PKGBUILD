@@ -8,7 +8,7 @@ license=(GPL-3.0-or-later)
 depends=(plasma-workspace kwin sddm plymouth oxygen oxygen-icons adobe-source-sans-fonts breeze-gtk konsole
          kdialog yakuake qt6-declarative pciutils polkit udisks2 pyside6 python-evdev xorg-xwayland
          qt6-webengine libx11 msitools qt6-multimedia qt6-multimedia-ffmpeg qt6-imageformats
-         cabextract 7zip ffmpeg)
+         cabextract 7zip ffmpeg python-mutagen)
 makedepends=(python librsvg imagemagick ffmpeg)
 install=halcyon-branding.install
 _krohnkite=0.9.9.2
