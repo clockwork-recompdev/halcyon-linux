@@ -177,7 +177,11 @@ build_install() {  # build_install BASE NAMES...: makepkg, then install just NAM
 install_pkgs() {
     local dry=$1; shift
     (( $# )) || return 0
-    command -v makepkg >/dev/null || die "Building needs base-devel: sudo pacman -S --needed base-devel git"
+    if ! pacman -Qq base-devel >/dev/null 2>&1; then
+        # Not on the ISO: the build tools come down the first time they're needed.
+        say "AUR packages are built on your computer, which needs the build tools (base-devel)."
+        sudo pacman -S --needed base-devel git || die "Couldn't install the build tools."
+    fi
     say "Resolving dependencies…"
     local n
     for n in "$@"; do resolve "$n" 0; done

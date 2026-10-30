@@ -78,10 +78,20 @@ sed -i \
     -e 's|^iso_application=.*|iso_application="Halcyon Linux Live"|' \
     -e 's/^install_dir=.*/install_dir="halcyon"/' \
     "$PROFILE/profiledef.sh"
-# zstd instead of xz: a bit bigger, but unpacks several times faster, which is
-# most of the installer's runtime (and speeds up the live session too).
-sed -i "s/^airootfs_image_tool_options=.*/airootfs_image_tool_options=('-comp' 'zstd' '-Xcompression-level' '15' '-b' '1M')/" \
+# xz with the x86 filter: the ISO has to fit in one GitHub release file (2 GiB).
+# zstd unpacked faster but left the image ~10% bigger.
+sed -i "s/^airootfs_image_tool_options=.*/airootfs_image_tool_options=('-comp' 'xz' '-Xbcj' 'x86' '-b' '1M' '-Xdict-size' '1M')/" \
     "$PROFILE/profiledef.sh"
+# UEFI via GRUB, which reads the kernel and initramfs from the ISO itself;
+# systemd-boot needed its own copy of both inside the EFI image (~250 MB more).
+sed -i "s/'uefi.systemd-boot'/'uefi.grub'/" "$PROFILE/profiledef.sh"
+# Leave out translations (English stays), documentation, man pages and
+# developer files, here and on installed systems, so updates stay lean too.
+noextract='NoExtract = usr/share/locale/* usr/share/doc/* usr/share/man/* usr/share/gir-1.0/* usr/share/qt6/translations/* !usr/share/locale/en/* !usr/share/locale/en_US/* !usr/share/locale/en_GB/* !usr/share/locale/locale.alias'
+sed -i "/^\[options\]/a $noextract" "$PROFILE/pacman.conf"
+# The live/installed system gets the same plain Arch config (before the local
+# build repo is added below); pacman leaves an existing /etc/pacman.conf alone.
+install -Dm644 "$PROFILE/pacman.conf" "$air/etc/pacman.conf"
 echo halcyon > "$air/etc/hostname"
 
 # Local repo with the branding package
@@ -123,8 +133,10 @@ cat >> "$PROFILE/profiledef.sh" <<'EOF'
 )
 EOF
 
-# Plymouth in the live initramfs
-sed -i 's/\budev\b/udev plymouth/' "$air/etc/mkinitcpio.conf.d/archiso.conf"
+# Plymouth in the live initramfs. No kms hook: it packs every GPU's firmware into
+# the initramfs (~150 MB); the splash runs on the kernel's simpledrm until the
+# real driver loads from the live system.
+sed -i -e 's/\budev\b/udev plymouth/' -e 's/ kms / /' "$air/etc/mkinitcpio.conf.d/archiso.conf"
 
 # Boot menus: names, splash params, theme
 for f in "$PROFILE"/syslinux/*.cfg "$PROFILE"/efiboot/loader/entries/*.conf "$PROFILE"/grub/*.cfg; do

@@ -42,8 +42,15 @@ if (( dos )); then
 fi
 
 # ------------------------------------------------- Windows environment ---
-command -v wine >/dev/null ||
-    fail "Windows support isn't installed yet.\n\nOpen Gaming Setup and choose \"Wine\"."
+if ! command -v wine >/dev/null; then
+    # Not on the ISO (it's ~1 GB): install it the first time it's needed.
+    kdialog --title "$title" --icon halcyon-logo --yesno \
+        "Installing from this disc needs Windows support (Wine), which isn't installed yet.\n\nDownload and install it now? (about 300 MB)" \
+        || exit 0
+    konsole --hide-menubar -e bash -c 'pkexec pacman -S --needed --noconfirm wine wine-mono wine-gecko winetricks ||
+        { echo; read -rp "Installing Windows support failed. Press Enter to close." _; }'
+    command -v wine >/dev/null || fail "Windows support couldn't be installed. Check your internet connection and try again."
+fi
 
 map_cd_drive() {
     # D: is a CD-ROM drive that always points at whatever disc is inserted.
@@ -56,16 +63,7 @@ map_cd_drive() {
         ln -s ../drive_c "$PREFIX/dosdevices/c:"
         ln -s / "$PREFIX/dosdevices/z:"
     fi
-    ln -sfn "$CDLINK" "$PREFIX/dosdevices/d:"
-    # d:: is the raw device (volume label/serial checks): the drive holding
-    # the disc that's mounted right now.
-    local dev
-    dev=$(findmnt -n -o SOURCE --target "$(readlink -f "$CDLINK")" 2>/dev/null)
-    if [[ $dev == /dev/sr* ]]; then
-        ln -sfn "$dev" "$PREFIX/dosdevices/d::"
-    else
-        rm -f "$PREFIX/dosdevices/d::"
-    fi
+    disc_point_d "$CDLINK"
 }
 
 first_time_setup() {

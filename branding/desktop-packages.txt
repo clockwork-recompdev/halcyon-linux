@@ -41,10 +41,7 @@ kcalc
 btop
 # Optical media: discs, DVDs, old PC games
 udisks2
-wine
-wine-mono
-wine-gecko
-winetricks
+# Wine is installed the first time a Windows disc or game needs it (keeps the ISO small)
 dosbox
 vlc
 vlc-plugin-dvd
@@ -62,7 +59,7 @@ dvd+rw-tools
 icoutils
 imagemagick
 # AUR app
-base-devel
+# base-devel is installed the first time an AUR package is built
 git
 fzf
 jq

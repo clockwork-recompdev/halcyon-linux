@@ -73,7 +73,7 @@ on_insert() {
     local dev=$1 props=$2 mp="" kind title action
     sleep 1  # let the drive settle before mounting
     grep -q '^ID_FS_TYPE=.' <<<"$props" && mp=$(mount_disc "$dev")
-    [[ -n $mp ]] && ln -sfn "$mp" "$CDLINK"
+    [[ -n $mp ]] && ln -sfn "$mp" "$CDLINK" && disc_point_d "$CDLINK"
 
     if installing; then
         # Mid-install disc swap ("Please insert Disc 2"): D: already follows the
@@ -101,7 +101,7 @@ on_insert() {
 for dev in /dev/sr*; do
     [[ -b $dev ]] || continue
     mp=$(findmnt -n -o TARGET --source "$dev" | head -1)
-    [[ -n $mp ]] && ln -sfn "$mp" "$CDLINK"
+    [[ -n $mp ]] && ln -sfn "$mp" "$CDLINK" && disc_point_d "$CDLINK"
 done
 
 # udev change events on /dev/srN carry ID_CDROM_MEDIA=1 when a disc arrives.

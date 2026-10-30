@@ -70,3 +70,18 @@ disc_icon_png() {  # disc_icon_png ROOT OUT.png: autorun icon (.ico, .exe or .dl
     rm -rf "$tmp"
     return $ok
 }
+
+disc_point_d() {  # disc_point_d CDLINK: aim the Windows environment's D: drive at the current disc
+    # dosdevices/d: is the disc's files; d:: is the raw device, which is where
+    # Wine reads the volume label and serial games check for ("insert disc").
+    # Real drives are /dev/srN; a mounted ISO is a loop device, which works too.
+    local cdlink=$1 prefix=${HALCYON_WINEPREFIX:-${XDG_DATA_HOME:-$HOME/.local/share}/halcyon/windows} dev fstype
+    [[ -d $prefix/dosdevices ]] || return 0
+    ln -sfn "$cdlink" "$prefix/dosdevices/d:"
+    read -r dev fstype < <(findmnt -n -o SOURCE,FSTYPE --target "$(readlink -f "$cdlink")" 2>/dev/null)
+    if [[ -b $dev && ( $dev == /dev/sr* || $dev == /dev/loop* || $fstype == iso9660 || $fstype == udf ) ]]; then
+        ln -sfn "$dev" "$prefix/dosdevices/d::"
+    else
+        rm -f "$prefix/dosdevices/d::"
+    fi
+}
