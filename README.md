@@ -78,6 +78,16 @@ hidden games and added games are kept in `~/.config/halcyon/games.json`.
 `F11`, Start, or `halcyon-games --big` switches to a full-screen menu for the TV: the game's art
 fills the screen and a gamepad drives it (A play, X favorite, Y search, Start back to the window).
 
+**Artwork** comes from SteamGridDB: paste a free API key in *View → SteamGridDB artwork…* (or the
+Welcome Center) and covers, heroes and logos download in the background into
+`~/.cache/halcyon-games/sgdb/`.
+
+**Controller mapping**, a la Steam Input: when a game is launched, PCGamingWiki says whether it
+supports controllers and what genre it is. Games without support get a virtual keyboard and mouse
+driven by the pad - *action* (WASD, mouse look) for shooters and action games, *mouse* (stick moves
+the pointer) for strategy and point-and-click. Steam games are left to Steam Input. Right-click a
+game → *Controller…* to pick a layout or turn it off; Guide + Back toggles it mid-game.
+
 The **on-screen keyboard** (`halcyon-osk`, autostarted) opens with **Guide + X** on any gamepad, from
 the app menu, or from the launcher's search. It types into whatever has focus through a virtual
 uinput keyboard (US layout labels), takes the gamepad over while open so the game doesn't react,
@@ -119,6 +129,34 @@ their settings live in `~/.config/halcyon/gadgets.json`; installed gadgets in
 Development: `gadgets/run.sh` runs the host from the checkout (`HALCYON_GADGETS_DEBUG=1` prints
 gadget console output); `gadgets/test/LegacyTest` is a compatibility test gadget
 (zip it to `LegacyTest.gadget` and install it).
+
+## Media Center
+
+`halcyon-mediacenter` is a 10-foot media app in the look of Windows Media Center (December 2005
+build): movies and TV from a Jellyfin or Plex server, music (albums, now playing, background
+playback), the Pictures folder (thumbnails, slide show), and DVDs / Blu-rays in the drive (main
+title in mpv, disc menus in VLC, eject). Keyboard, remote or gamepad.
+
+## Messenger, Navigator and the rest
+
+- **Halcyon Messenger** (`halcyon-messenger`): Discord in a Windows Live Messenger-style window.
+- **Halcyon Navigator** (`halcyon-navigator`): an Internet Explorer 7-style browser for the old web.
+  `http://` goes through [Protoweb](https://protoweb.org)'s proxy (home: the iNode Gateway),
+  Flash runs in the bundled Ruffle and Java applets in CheerpJ. Protoweb and live-web browsing
+  keep separate profiles. Settings: `~/.config/halcyon/retro-browser.json`.
+- **Halcyon Update** (`halcyon-update`): a Windows Update-style window for system, Halcyon, AUR
+  and Flatpak updates, with history and a daily check.
+- **Welcome Center** (`halcyon-welcome`): Vista's first-run window - computer details and
+  getting-started tasks (install, desktop mode, gaming setup, SteamGridDB key, updates, accounts…).
+  Opens at logon until *Run at startup* is unticked.
+
+## Sounds
+
+Every sound is synthesized - no sound files are shipped. `tools/gen_sounds.py` makes the
+**Halcyon desktop sound theme** (freedesktop spec; logon/logoff, notices, errors, devices, trash,
+volume…) at package build; it is the default theme and the logon/logoff sounds are on.
+Halcyon Games (2012 Big Picture-style water bloops) and Media Center (WMC-style) render their
+interface sounds from `games/halcyon_games/sfx.py`.
 
 ## Updates
 
