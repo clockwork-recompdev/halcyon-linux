@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Mines
+GenericName=Logic Game
+Comment=Clear the field without setting off a mine
+Exec=halcyon-mines
+Icon=kmines
+Categories=Game;LogicGame;
+Keywords=mines;minefield;sweeper;puzzle;logic;
+StartupWMClass=halcyon-mines
