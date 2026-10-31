@@ -1,0 +1,5 @@
+#!/bin/sh
+# Halcyon Chess: against the computer (four levels) or a friend.
+here=/usr/share/halcyon-arcade
+[ -d "$here" ] || here=$(dirname "$(readlink -f "$0")")/../../arcade   # dev checkout
+PYTHONPATH=$here exec python3 -m halcyon_arcade.chess "$@"

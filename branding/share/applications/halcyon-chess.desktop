@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Chess
+GenericName=Board Game
+Comment=Play chess on a glass board against the computer or a friend
+Exec=halcyon-chess
+Icon=knights
+Categories=Game;BoardGame;
+Keywords=chess;board;strategy;checkmate;
+StartupWMClass=halcyon-chess
