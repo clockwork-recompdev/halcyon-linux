@@ -1,0 +1,5 @@
+#!/bin/sh
+# Halcyon Tiles: match pairs of tiles to clear the pyramid.
+here=/usr/share/halcyon-arcade
+[ -d "$here" ] || here=$(dirname "$(readlink -f "$0")")/../../arcade   # dev checkout
+PYTHONPATH=$here exec python3 -m halcyon_arcade.tiles "$@"

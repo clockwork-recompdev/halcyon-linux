@@ -126,7 +126,7 @@ package() {
     for f in halcyon-install halcyon-mode halcyon-keys halcyon-gaming halcyon-dev \
              halcyon-disc-install halcyon-autoplay-dialog halcyon-aur halcyon-screensaver halcyon-player halcyon-wintheme halcyon-update \
              halcyon-games halcyon-osk halcyon-gadgets halcyon-messenger halcyon-mediacenter \
-             halcyon-navigator halcyon-welcome halcyon-mail halcyon-photos halcyon-calendar halcyon-notes halcyon-search halcyon-solitaire halcyon-mines halcyon-chess; do
+             halcyon-navigator halcyon-welcome halcyon-mail halcyon-photos halcyon-calendar halcyon-notes halcyon-search halcyon-solitaire halcyon-mines halcyon-chess halcyon-tiles; do
         install -Dm755 "$startdir/bin/$f" "$pkgdir/usr/bin/$f"
     done
     ln -s halcyon-navigator "$pkgdir/usr/bin/halcyon-retro-browser"    # its old name

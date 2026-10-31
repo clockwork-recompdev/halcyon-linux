@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Tiles
+GenericName=Tile Matching Game
+Comment=Clear the pyramid by matching pairs of free tiles
+Exec=halcyon-tiles
+Icon=kmahjongg
+Categories=Game;BoardGame;
+Keywords=mahjong;tiles;solitaire;matching;pairs;
+StartupWMClass=halcyon-tiles

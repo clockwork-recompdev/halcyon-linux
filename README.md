@@ -130,6 +130,14 @@ Development: `gadgets/run.sh` runs the host from the checkout (`HALCYON_GADGETS_
 gadget console output); `gadgets/test/LegacyTest` is a compatibility test gadget
 (zip it to `LegacyTest.gadget` and install it).
 
+## Games pack
+
+Under **Games** in the app menu (kept out of Halcyon Games): **Solitaire** (Klondike draw one/three,
+**Spider** one/two/four suits, **FreeCell** with the classic numbered deals), **Mines**, **Chess** (rules
+engine checked with perft, a four-level computer opponent, or two players) and **Tiles** (the 144-tile
+turtle, every deal solvable). Cards, pieces and tiles are all drawn in code; statistics, options and
+an unfinished chess game live in `~/.local/share/halcyon/games/`. Code: `arcade/halcyon_arcade/`.
+
 ## Media Center
 
 `halcyon-mediacenter` is a 10-foot media app in the look of Windows Media Center (December 2005
