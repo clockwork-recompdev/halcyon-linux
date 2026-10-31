@@ -126,7 +126,7 @@ package() {
     for f in halcyon-install halcyon-mode halcyon-keys halcyon-gaming halcyon-dev \
              halcyon-disc-install halcyon-autoplay-dialog halcyon-aur halcyon-screensaver halcyon-player halcyon-wintheme halcyon-update \
              halcyon-games halcyon-osk halcyon-gadgets halcyon-messenger halcyon-mediacenter \
-             halcyon-navigator halcyon-welcome halcyon-mail halcyon-photos halcyon-calendar halcyon-notes halcyon-search; do
+             halcyon-navigator halcyon-welcome halcyon-mail halcyon-photos halcyon-calendar halcyon-notes halcyon-search halcyon-solitaire; do
         install -Dm755 "$startdir/bin/$f" "$pkgdir/usr/bin/$f"
     done
     ln -s halcyon-navigator "$pkgdir/usr/bin/halcyon-retro-browser"    # its old name
@@ -159,6 +159,10 @@ package() {
     done
     install -Dm644 "$startdir/udev/70-halcyon-uinput.rules" "$pkgdir/usr/lib/udev/rules.d/70-halcyon-uinput.rules"
     install -Dm644 "$startdir/udev/halcyon-uinput.conf" "$pkgdir/usr/lib/modules-load.d/halcyon-uinput.conf"
+
+    # Games pack (Solitaire, ...): in the menu's Games section
+    install -d "$share/halcyon-arcade/halcyon_arcade"
+    install -m644 "$startdir"/../arcade/halcyon_arcade/*.py "$share/halcyon-arcade/halcyon_arcade/"
 
     # Halcyon Search
     install -d "$share/halcyon-search/halcyon_search"

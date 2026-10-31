@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Solitaire
+GenericName=Card Game
+Comment=Klondike solitaire: build the four suits from Ace to King
+Exec=halcyon-solitaire --game klondike
+Icon=kpat
+Categories=Game;CardGame;
+Keywords=cards;solitaire;patience;klondike;
+StartupWMClass=halcyon-solitaire

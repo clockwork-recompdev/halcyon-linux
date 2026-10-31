@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Spider Solitaire
+GenericName=Card Game
+Comment=Clear the table by building King-to-Ace runs of one suit
+Exec=halcyon-solitaire --game spider
+Icon=kpat
+Categories=Game;CardGame;
+Keywords=cards;solitaire;patience;spider;
+StartupWMClass=halcyon-solitaire

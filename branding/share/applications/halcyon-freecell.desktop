@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=FreeCell
+GenericName=Card Game
+Comment=Solve numbered deals using four free cells
+Exec=halcyon-solitaire --game freecell
+Icon=kpat
+Categories=Game;CardGame;
+Keywords=cards;solitaire;patience;freecell;
+StartupWMClass=halcyon-solitaire
